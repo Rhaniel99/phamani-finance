@@ -79,10 +79,16 @@ class GoogleAuthTest extends TestCase
         config(['services.google.allowed_emails' => ['bia@gmail.com']]);
         $this->fakeGoogleUser(email: 'ana@gmail.com');
 
-        $this->get(route('auth.google.callback'))->assertRedirect(route('login'));
+        $this->get(route('auth.google.callback'))
+            ->assertRedirect(route('login'))
+            ->assertSessionHas('auth_error');
 
         $this->assertGuest();
         $this->assertDatabaseCount('users', 0);
+
+        $this->get(route('login'))->assertInertia(
+            fn ($page) => $page->component('welcome')->where('error', fn ($e) => str_contains((string) $e, 'ana@gmail.com')),
+        );
     }
 
     public function test_allowlist_is_case_insensitive(): void

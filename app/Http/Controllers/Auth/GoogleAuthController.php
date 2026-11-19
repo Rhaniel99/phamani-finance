@@ -10,12 +10,24 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
+use Inertia\Response;
 use Laravel\Socialite\Facades\Socialite;
 use Symfony\Component\HttpFoundation\RedirectResponse as SymfonyRedirectResponse;
 use Throwable;
 
 class GoogleAuthController extends Controller
 {
+    /**
+     * Tela de login. O erro vem da sessão (flash) porque o retorno do Google é uma
+     * navegação completa do navegador, não uma visita do Inertia.
+     */
+    public function login(Request $request): Response
+    {
+        return Inertia::render('welcome', [
+            'error' => $request->session()->get('auth_error'),
+        ]);
+    }
+
     /**
      * Envia o usuário para a tela de consentimento do Google.
      */
@@ -34,17 +46,13 @@ class GoogleAuthController extends Controller
         } catch (Throwable $e) {
             Log::warning('Falha no login com Google', ['error' => $e->getMessage()]);
 
-            Inertia::flash('toast', ['type' => 'error', 'message' => 'Não foi possível entrar com o Google. Tente novamente.']);
-
-            return to_route('login');
+            return to_route('login')->with('auth_error', 'Não foi possível entrar com o Google. Tente novamente.');
         }
 
         if (! $this->isAllowed((string) $googleUser->getEmail())) {
             Log::notice('Login com Google bloqueado (e-mail fora de ALLOWED_EMAILS)', ['email' => $googleUser->getEmail()]);
 
-            Inertia::flash('toast', ['type' => 'error', 'message' => 'Esta conta Google não tem acesso ao Phamani.']);
-
-            return to_route('login');
+            return to_route('login')->with('auth_error', 'A conta '.$googleUser->getEmail().' não tem acesso ao Phamani. Peça a liberação ao administrador.');
         }
 
         $user = User::updateOrCreate(

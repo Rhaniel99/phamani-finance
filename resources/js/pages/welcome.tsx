@@ -1,9 +1,9 @@
 import { Head } from '@inertiajs/react';
-import { BarChart3, Layers, Repeat, Wallet } from 'lucide-react';
+import { BarChart3, Layers, Repeat, ShieldAlert, Wallet } from 'lucide-react';
 import { motion } from 'motion/react';
 import { redirect as googleRedirect } from '@/routes/auth/google';
 
-export default function Welcome() {
+export default function Welcome({ error }: { error?: string | null }) {
     return (
         <>
             <Head title="Entrar" />
@@ -42,6 +42,16 @@ export default function Welcome() {
                             recorrentes
                         </li>
                     </ul>
+
+                    {error && (
+                        <div
+                            role="alert"
+                            className="mb-6 flex items-start gap-3 rounded-xl border border-l-[6px] border-[#E8C4C0] border-l-[#A65D57] bg-[#FFF5F5] px-4 py-3 text-sm text-[#8B4543]"
+                        >
+                            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                            <span>{error}</span>
+                        </div>
+                    )}
 
                     {/* Navegação completa (não-Inertia): o Google precisa de um redirect real do navegador. */}
                     <a

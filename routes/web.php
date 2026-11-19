@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\Route;
 | Autenticação (somente Google)
 */
 Route::middleware('guest')->group(function () {
-    Route::inertia('/', 'welcome')->name('login');
+    Route::get('/', [GoogleAuthController::class, 'login'])->name('login');
 
     Route::get('auth/google/redirect', [GoogleAuthController::class, 'redirect'])->name('auth.google.redirect');
     Route::get('auth/google/callback', [GoogleAuthController::class, 'callback'])->name('auth.google.callback');
