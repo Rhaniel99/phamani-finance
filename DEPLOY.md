@@ -32,15 +32,18 @@ O consumo total é de uns 600 MB de RAM, com limites definidos no compose.
 
 ## 2. Criar o túnel
 
-1. No painel da Cloudflare, abra **Zero Trust → Networks → Tunnels → Create a tunnel**.
-2. Escolha **Cloudflared** e dê o nome `phamani`.
-3. Na tela de instalação, escolha **Docker** e copie **só o token** (o texto longo depois de `--token`, que começa com `eyJ`).
-   Ele vai no `CLOUDFLARE_TUNNEL_TOKEN`. Não rode o comando que aparece ali.
-4. Em **Public Hostname**, preencha:
-   - Subdomain: `phamani`
-   - Domain: `lukisa.com.br`
-   - Service: **HTTP** → `web:8000`
-5. Salve. O túnel fica "Inactive" até o primeiro deploy, e isso é esperado.
+1. No painel da Cloudflare: **Rede → Túneis → Criar túnel → Cloudflared**, nome `phamani`.
+2. Escolha **Docker** e copie o comando (botão de copiar); guarde **só o token** (começa com `eyJ`)
+   → vai no `CLOUDFLARE_TUNNEL_TOKEN`.
+3. A tela só deixa **Continuar** quando um conector estiver online. Para liberar, rode um temporário no marvin:
+   `docker run --rm cloudflare/cloudflared:latest tunnel --no-autoupdate run --token <TOKEN>`
+4. Depois de criado, abra o túnel **phamani** na lista → aba **Rotas** → **Adicionar rota → Aplicativo publicado**:
+   - Hostname: `phamani` . `lukisa.com.br`
+   - Service URL: `http://web:8000`
+   (o registro DNS é criado automaticamente)
+5. `Ctrl+C` no temporário. Até o primeiro deploy, o site responde "Error 1033" — normal.
+
+Recomendado: **Domínios → lukisa.com.br → SSL/TLS → Certificados de borda → Sempre usar HTTPS**.
 
 ## 3. Google OAuth
 
@@ -49,9 +52,8 @@ No Google Cloud Console, em **APIs e serviços → Credenciais**, abra o seu cli
 - **Origens JavaScript autorizadas:** `https://phamani.lukisa.com.br`
 - **URIs de redirecionamento autorizados:** `https://phamani.lukisa.com.br/auth/google/callback`
 
-Em **Tela de consentimento OAuth → Público-alvo**, faça uma destas duas coisas:
-- clique em **Publicar app**, para qualquer conta Google conseguir entrar; ou
-- deixe em "Teste" e adicione em **Usuários de teste** as contas que vão usar (a sua e a da sua esposa).
+Em **Google Auth Platform → Público-alvo**, deixe em **Testando** e adicione as contas em **Usuários de teste**
+(só elas conseguem entrar). Publicar exige Branding completo e verificação do domínio — não é necessário.
 
 ## 4. Preparar o servidor (uma vez só)
 
