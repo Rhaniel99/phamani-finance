@@ -27,12 +27,14 @@ class Installment extends BaseModel
         'start_date',
         'end_date',
         'status',
+        'auto_pay',
     ];
 
     protected $casts = [
         'total_amount' => 'decimal:2',
         'installment_amount' => 'decimal:2',
         'installments' => 'integer',
+        'auto_pay' => 'boolean',
         'start_date' => 'date:Y-m-d',
         'end_date' => 'date:Y-m-d',
     ];

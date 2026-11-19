@@ -6,7 +6,9 @@ import { AccountsList } from '@/components/phamani/list/accounts-list';
 import { AccountsListModal } from '@/components/phamani/modal/accounts-list-modal';
 import { Button } from '@/components/phamani/ui/button';
 import { Card } from '@/components/phamani/ui/card';
+import { PaymentStatusBadge } from '@/components/phamani/payment-status-badge';
 import { formatCurrency, formatDate, today } from '@/lib/format';
+import { paymentStatus } from '@/lib/payment';
 import { index as transactionsIndex } from '@/routes/transactions';
 import type { Account, Transaction } from '@/types/phamani';
 
@@ -73,10 +75,14 @@ export function DashboardSidebar({
                                     </p>
                                     <p className="flex items-center gap-2 text-xs text-[#8B7355]">
                                         {formatDate(t.date)}
-                                        {t.date.slice(0, 10) > todayStr && (
+                                        {t.date.slice(0, 10) > todayStr ? (
                                             <span className="rounded-md bg-[#E8DCC4] px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-[#6B4E3D] uppercase">
                                                 Agendada
                                             </span>
+                                        ) : (
+                                            paymentStatus(t) === 'overdue' && (
+                                                <PaymentStatusBadge status="overdue" />
+                                            )
                                         )}
                                     </p>
                                 </div>

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\Category\Color;
+use App\Interfaces\Services\ICreditCardService;
 use App\Interfaces\Services\IDashboardService;
 use App\Models\Account;
 use App\Models\Installment;
@@ -13,6 +14,10 @@ use Illuminate\Support\Collection;
 
 class DashboardService implements IDashboardService
 {
+    public function __construct(
+        protected ICreditCardService $cards,
+    ) {}
+
     public function kpis(string $userId): array
     {
         $now = CarbonImmutable::now();
@@ -25,7 +30,10 @@ class DashboardService implements IDashboardService
         $previousExpense = $this->monthlyTotal($userId, 'expense', $lastMonth);
 
         return [
+            // Só dinheiro em contas; cartão é dívida e aparece em "faturas em aberto".
             'total_balance' => $this->totalBalance($userId),
+            'open_invoices' => $this->cards->openInvoicesTotal($userId),
+            'overdue' => $this->overdue($userId),
             'income' => [
                 'value' => $currentIncome,
                 'trend' => $this->trend($currentIncome, $previousIncome),
@@ -150,7 +158,10 @@ class DashboardService implements IDashboardService
 
     protected function totalBalance(string $userId): float
     {
-        return (float) Account::query()->where('user_id', $userId)->sum('balance');
+        return (float) Account::query()
+            ->where('user_id', $userId)
+            ->where('type', '!=', 'credit')
+            ->sum('balance');
     }
 
     protected function monthlyTotal(string $userId, string $type, CarbonImmutable $month): float
@@ -184,6 +195,25 @@ class DashboardService implements IDashboardService
         return [
             'value' => round($diff, 1),
             'direction' => $diff >= 0 ? 'up' : 'down',
+        ];
+    }
+
+    /**
+     * Despesas vencidas e ainda não pagas (de qualquer mês).
+     *
+     * @return array{count: int, amount: float}
+     */
+    private function overdue(string $userId): array
+    {
+        $query = Transaction::query()
+            ->where('user_id', $userId)
+            ->where('type', 'expense')
+            ->whereNull('paid_at')
+            ->whereDate('date', '<', now()->toDateString());
+
+        return [
+            'count' => (clone $query)->count(),
+            'amount' => round((float) (clone $query)->sum('amount'), 2),
         ];
     }
 }

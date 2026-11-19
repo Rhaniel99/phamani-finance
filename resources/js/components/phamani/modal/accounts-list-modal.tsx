@@ -7,7 +7,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { formatCurrency } from '@/lib/format';
-import { ACCOUNT_TYPE_LABELS } from '@/types/phamani';
+import { ACCOUNT_TYPE_LABELS, isCreditCard } from '@/types/phamani';
 import type { Account } from '@/types/phamani';
 
 interface AccountsListModalProps {
@@ -21,10 +21,10 @@ export function AccountsListModal({
     onOpenChange,
     accounts,
 }: AccountsListModalProps) {
-    const totalBalance = accounts.reduce(
-        (sum, acc) => sum + Number(acc.balance),
-        0,
-    );
+    // Cartão é dívida (fatura), não entra no saldo.
+    const totalBalance = accounts
+        .filter((acc) => !isCreditCard(acc))
+        .reduce((sum, acc) => sum + Number(acc.balance), 0);
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -66,16 +66,31 @@ export function AccountsListModal({
                                 </div>
                             </div>
 
-                            <div className="text-right">
-                                <p className="text-[10px] text-[#8B7355] uppercase">
-                                    Saldo
-                                </p>
-                                <p
-                                    className={`text-sm font-bold ${Number(account.balance) < 0 ? 'text-[#B91C1C]' : 'text-[#3D2817]'}`}
-                                >
-                                    {formatCurrency(account.balance)}
-                                </p>
-                            </div>
+                            {isCreditCard(account) ? (
+                                <div className="text-right">
+                                    <p className="text-[10px] text-[#8B7355] uppercase">
+                                        Disponível
+                                    </p>
+                                    <p className="text-sm font-bold text-[#3D2817]">
+                                        {account.card?.available != null
+                                            ? formatCurrency(
+                                                  account.card.available,
+                                              )
+                                            : '—'}
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="text-right">
+                                    <p className="text-[10px] text-[#8B7355] uppercase">
+                                        Saldo
+                                    </p>
+                                    <p
+                                        className={`text-sm font-bold ${Number(account.balance) < 0 ? 'text-[#B91C1C]' : 'text-[#3D2817]'}`}
+                                    >
+                                        {formatCurrency(account.balance)}
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>

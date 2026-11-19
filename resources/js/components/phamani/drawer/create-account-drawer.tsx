@@ -5,11 +5,15 @@ import { DrawerShell } from '@/components/phamani/drawer/drawer-shell';
 import { Label } from '@/components/ui/label';
 import { useAccountsForm } from '@/hooks/use-accounts-form';
 import { cn } from '@/lib/utils';
-import type { CreateAccount } from '@/types/phamani';
+import type { Account, CreateAccount } from '@/types/phamani';
 
 interface CreateAccountDrawerProps {
     isOpen: boolean;
     onClose: () => void;
+    /** Contas do usuário, para escolher de onde sai o pagamento da fatura. */
+    accounts?: Account[];
+    /** Quando informado, edita esta conta/cartão. */
+    account?: Account | null;
 }
 
 const TYPES: Array<{
@@ -20,45 +24,85 @@ const TYPES: Array<{
     { value: 'cash', label: 'Dinheiro', icon: Banknote },
     { value: 'checking', label: 'Conta', icon: Wallet },
     { value: 'savings', label: 'Poupança', icon: PiggyBank },
-    { value: 'credit', label: 'Crédito', icon: CreditCard },
+    { value: 'credit', label: 'Cartão de crédito', icon: CreditCard },
 ];
+
+const inputClass =
+    'w-full rounded-xl border-2 border-[#E8DCC4] bg-white px-4 py-3 text-[#3D2817] placeholder:text-[#D4C5A9] focus:border-[#6B4E3D] focus:outline-none';
+
+function FieldError({ message }: { message?: string }) {
+    return message ? <p className="text-xs text-[#D4183D]">{message}</p> : null;
+}
 
 export function CreateAccountDrawer({
     isOpen,
     onClose,
+    accounts = [],
+    account,
 }: CreateAccountDrawerProps) {
-    const { form, submit } = useAccountsForm(onClose);
+    return (
+        <DrawerShell
+            isOpen={isOpen}
+            onClose={onClose}
+            title={
+                account
+                    ? account.type === 'credit'
+                        ? 'Editar Cartão'
+                        : 'Editar Conta'
+                    : 'Nova Conta'
+            }
+        >
+            {/* key: formulário novo a cada abertura/conta editada */}
+            <AccountForm
+                key={account?.id ?? 'new'}
+                onClose={onClose}
+                accounts={accounts}
+                account={account}
+            />
+        </DrawerShell>
+    );
+}
+
+function AccountForm({
+    onClose,
+    accounts,
+    account,
+}: {
+    onClose: () => void;
+    accounts: Account[];
+    account?: Account | null;
+}) {
+    const { form, submit, isEditing } = useAccountsForm(onClose, account);
+    const { data, setData, errors } = form;
+    const isCard = data.type === 'credit';
+    const paymentAccounts = accounts.filter((a) => a.type !== 'credit');
 
     return (
-        <DrawerShell isOpen={isOpen} onClose={onClose} title="Nova Conta">
-            <Form
-                onSubmit={submit}
-                className="flex flex-1 flex-col overflow-y-auto"
-            >
-                <div className="flex-1 space-y-8 p-6">
-                    <div className="space-y-3">
-                        <Label
-                            htmlFor="account-name"
-                            className="font-serif text-[#6B4E3D]"
-                        >
-                            Nome da conta
-                        </Label>
-                        <input
-                            id="account-name"
-                            value={form.data.name}
-                            onChange={(e) =>
-                                form.setData('name', e.target.value)
-                            }
-                            placeholder="Ex: Nubank"
-                            className="w-full rounded-xl border-2 border-[#E8DCC4] bg-white px-4 py-3 text-[#3D2817] placeholder:text-[#D4C5A9] focus:border-[#6B4E3D] focus:outline-none"
-                        />
-                        {form.errors.name && (
-                            <p className="text-xs text-[#D4183D]">
-                                {form.errors.name}
-                            </p>
-                        )}
-                    </div>
+        <Form
+            onSubmit={submit}
+            className="flex flex-1 flex-col overflow-y-auto"
+        >
+            <div className="flex-1 space-y-8 p-6">
+                <div className="space-y-3">
+                    <Label
+                        htmlFor="account-name"
+                        className="font-serif text-[#6B4E3D]"
+                    >
+                        {isCard ? 'Nome do cartão' : 'Nome da conta'}
+                    </Label>
+                    <input
+                        id="account-name"
+                        value={data.name}
+                        onChange={(e) => setData('name', e.target.value)}
+                        placeholder={
+                            isCard ? 'Ex: Nubank Platinum' : 'Ex: Nubank'
+                        }
+                        className={inputClass}
+                    />
+                    <FieldError message={errors.name} />
+                </div>
 
+                {!isEditing && (
                     <div className="space-y-3">
                         <Label className="font-serif text-[#6B4E3D]">
                             Tipo
@@ -68,10 +112,10 @@ export function CreateAccountDrawer({
                                 <button
                                     key={value}
                                     type="button"
-                                    onClick={() => form.setData('type', value)}
+                                    onClick={() => setData('type', value)}
                                     className={cn(
                                         'flex flex-col items-center justify-center gap-2 rounded-xl border-2 p-4 transition-all',
-                                        form.data.type === value
+                                        data.type === value
                                             ? 'border-[#3D2817] bg-white text-[#3D2817]'
                                             : 'border-transparent bg-white text-[#D4C5A9] hover:border-[#E8DCC4]',
                                     )}
@@ -84,18 +128,147 @@ export function CreateAccountDrawer({
                             ))}
                         </div>
                     </div>
-                </div>
+                )}
 
-                <div className="border-t border-[#E8DCC4] bg-[#F5EFE6] p-6">
-                    <button
-                        type="submit"
-                        disabled={form.processing || !form.data.name}
-                        className="w-full rounded-xl bg-[#8B7355] py-4 text-lg font-medium text-[#F5EFE6] shadow-lg transition-colors hover:bg-[#6B4E3D] disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                        Criar conta
-                    </button>
-                </div>
-            </Form>
-        </DrawerShell>
+                {isCard && (
+                    <div className="space-y-5 rounded-2xl border border-[#E8DCC4] bg-[#FBF7F1] p-4">
+                        <p className="text-xs text-[#8B7355]">
+                            Compras no cartão não mexem no saldo das contas:
+                            entram na fatura e o dinheiro só sai quando você
+                            paga a fatura.
+                        </p>
+
+                        <div className="space-y-2">
+                            <Label
+                                htmlFor="credit_limit"
+                                className="font-serif text-[#6B4E3D]"
+                            >
+                                Limite (R$)
+                            </Label>
+                            <input
+                                id="credit_limit"
+                                type="number"
+                                inputMode="decimal"
+                                step="0.01"
+                                min="0"
+                                value={data.credit_limit}
+                                onChange={(e) =>
+                                    setData(
+                                        'credit_limit',
+                                        e.target.value === ''
+                                            ? ''
+                                            : Number(e.target.value),
+                                    )
+                                }
+                                placeholder="5000,00"
+                                className={inputClass}
+                            />
+                            <FieldError message={errors.credit_limit} />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-2">
+                                <Label
+                                    htmlFor="closing_day"
+                                    className="font-serif text-[#6B4E3D]"
+                                >
+                                    Dia do fechamento
+                                </Label>
+                                <input
+                                    id="closing_day"
+                                    type="number"
+                                    min={1}
+                                    max={31}
+                                    value={data.closing_day}
+                                    onChange={(e) =>
+                                        setData(
+                                            'closing_day',
+                                            e.target.value === ''
+                                                ? ''
+                                                : Number(e.target.value),
+                                        )
+                                    }
+                                    placeholder="25"
+                                    className={inputClass}
+                                />
+                                <FieldError message={errors.closing_day} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label
+                                    htmlFor="due_day"
+                                    className="font-serif text-[#6B4E3D]"
+                                >
+                                    Dia do vencimento
+                                </Label>
+                                <input
+                                    id="due_day"
+                                    type="number"
+                                    min={1}
+                                    max={31}
+                                    value={data.due_day}
+                                    onChange={(e) =>
+                                        setData(
+                                            'due_day',
+                                            e.target.value === ''
+                                                ? ''
+                                                : Number(e.target.value),
+                                        )
+                                    }
+                                    placeholder="5"
+                                    className={inputClass}
+                                />
+                                <FieldError message={errors.due_day} />
+                            </div>
+                        </div>
+
+                        {paymentAccounts.length > 0 && (
+                            <div className="space-y-2">
+                                <Label
+                                    htmlFor="payment_account_id"
+                                    className="font-serif text-[#6B4E3D]"
+                                >
+                                    Conta que paga a fatura
+                                </Label>
+                                <select
+                                    id="payment_account_id"
+                                    value={data.payment_account_id}
+                                    onChange={(e) =>
+                                        setData(
+                                            'payment_account_id',
+                                            e.target.value,
+                                        )
+                                    }
+                                    className={inputClass}
+                                >
+                                    <option value="">Escolher na hora</option>
+                                    {paymentAccounts.map((a) => (
+                                        <option key={a.id} value={a.id}>
+                                            {a.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                <FieldError
+                                    message={errors.payment_account_id}
+                                />
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            <div className="border-t border-[#E8DCC4] bg-[#F5EFE6] p-6">
+                <button
+                    type="submit"
+                    disabled={form.processing || !data.name}
+                    className="w-full rounded-xl bg-[#8B7355] py-4 text-lg font-medium text-[#F5EFE6] shadow-lg transition-colors hover:bg-[#6B4E3D] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                    {isEditing
+                        ? 'Salvar alterações'
+                        : isCard
+                          ? 'Criar cartão'
+                          : 'Criar conta'}
+                </button>
+            </div>
+        </Form>
     );
 }

@@ -63,6 +63,12 @@ class User extends Authenticatable
         return $this->hasMany(Category::class);
     }
 
+    /** @return HasMany<Contact, $this> */
+    public function contacts(): HasMany
+    {
+        return $this->hasMany(Contact::class);
+    }
+
     /** @return HasMany<Transaction, $this> */
     public function transactions(): HasMany
     {

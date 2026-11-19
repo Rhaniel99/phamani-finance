@@ -4,10 +4,12 @@ namespace App\Services;
 
 use App\DTOs\Transaction\StoreTransactionData;
 use App\DTOs\Transaction\UpdateTransactionData;
-use App\Interfaces\Repositories\IAccountRepository;
 use App\Interfaces\Repositories\ITransactionRepository;
+use App\Interfaces\Services\IBalanceService;
 use App\Interfaces\Services\IInstallmentService;
 use App\Interfaces\Services\IRecurringTransactionService;
+use App\Interfaces\Services\IShareService;
+use App\Interfaces\Services\ISplitService;
 use App\Interfaces\Services\ITransactionService;
 use App\Models\Transaction;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -19,13 +21,17 @@ class TransactionService implements ITransactionService
 {
     public function __construct(
         protected ITransactionRepository $repository,
-        protected IAccountRepository $accountRepository,
+        protected IBalanceService $balance,
         protected IInstallmentService $installmentService,
         protected IRecurringTransactionService $recurringService,
+        protected ISplitService $splits,
+        protected IShareService $shares,
     ) {}
 
     public function create(string $userId, StoreTransactionData $dto): Model
     {
+        $this->splits->validate($dto->split, $dto->amount, $dto->type);
+
         if ($dto->is_installment) {
             return $this->installmentService->createInstallment($userId, $dto);
         }
@@ -35,18 +41,27 @@ class TransactionService implements ITransactionService
         }
 
         return DB::transaction(function () use ($userId, $dto) {
+            $parts = $this->splits->compute($dto->amount, $dto->split);
+
+            /** @var Transaction $transaction */
             $transaction = $this->repository->create([
                 'user_id' => $userId,
-                'account_id' => $dto->account_id,
+                // Se outra pessoa pagou, nenhuma conta sua é afetada.
+                'account_id' => $parts['paid_by_contact_id'] === null ? $dto->account_id : null,
                 'category_id' => $dto->category_id,
                 'name' => $dto->description,
                 'description' => $dto->description,
                 'type' => $dto->type,
-                'amount' => $dto->amount,
+                'amount' => $parts['amount'],
+                'total_amount' => $parts['total_amount'],
+                'paid_by_contact_id' => $parts['paid_by_contact_id'],
                 'date' => $dto->date,
             ]);
 
-            $this->accountRepository->applyTransaction($dto->account_id, $dto->amount, $dto->type);
+            $this->splits->sync($transaction, $parts['shares']);
+
+            // Data futura: fica "agendada" e só entra no saldo quando a data chegar.
+            $this->balance->applyIfDue($transaction);
 
             return $transaction;
         });
@@ -54,18 +69,12 @@ class TransactionService implements ITransactionService
 
     public function update(Transaction $transaction, UpdateTransactionData $dto): Transaction
     {
-        return DB::transaction(function () use ($transaction, $dto) {
-            $affectsBalance = $this->affectsBalance($transaction);
+        $this->splits->validate($dto->split, $dto->amount, $dto->type);
 
-            // Desfaz o valor antigo na conta antiga e aplica o novo na conta nova
-            // (cobre troca de valor, de tipo e de conta).
-            if ($affectsBalance) {
-                $this->accountRepository->revertTransaction(
-                    $transaction->account_id,
-                    (float) $transaction->amount,
-                    $transaction->type,
-                );
-            }
+        return DB::transaction(function () use ($transaction, $dto) {
+            // Tira o efeito antigo (se havia) e reaplica com os dados novos, se a data já chegou.
+            // Cobre troca de valor, de tipo, de conta e de data.
+            $this->balance->revert($transaction);
 
             // Parcelas mantêm o sufixo "(n/total)" no nome.
             $name = $dto->description;
@@ -73,21 +82,29 @@ class TransactionService implements ITransactionService
                 $name = "{$dto->description} ({$transaction->installment_number}/{$transaction->installment->installments})";
             }
 
+            $parts = $this->splits->compute($dto->amount, $dto->split);
+
             $this->repository->update($transaction->id, [
-                'account_id' => $dto->account_id,
+                'account_id' => $parts['paid_by_contact_id'] === null ? $dto->account_id : null,
                 'category_id' => $dto->category_id,
                 'name' => $name,
                 'description' => $dto->description,
                 'type' => $dto->type,
-                'amount' => $dto->amount,
+                'amount' => $parts['amount'],
+                'total_amount' => $parts['total_amount'],
+                'paid_by_contact_id' => $parts['paid_by_contact_id'],
                 'date' => $dto->date,
             ]);
 
-            if ($affectsBalance) {
-                $this->accountRepository->applyTransaction($dto->account_id, $dto->amount, $dto->type);
+            $transaction->refresh();
+            $this->splits->sync($transaction, $parts['shares']);
+            $this->balance->applyIfDue($transaction);
+
+            if ($dto->apply_to_following && $transaction->installment_id !== null) {
+                $this->installmentService->updateFollowingParcels($transaction, $dto->amount, $dto->split);
             }
 
-            return $transaction->refresh();
+            return $transaction;
         });
     }
 
@@ -100,25 +117,11 @@ class TransactionService implements ITransactionService
         }
 
         DB::transaction(function () use ($transaction) {
-            if ($this->affectsBalance($transaction)) {
-                $this->accountRepository->revertTransaction(
-                    $transaction->account_id,
-                    (float) $transaction->amount,
-                    $transaction->type,
-                );
-            }
-
+            // Quem aceitou a divisão perde a cópia.
+            $this->shares->removeFor($transaction);
+            $this->balance->revert($transaction);
             $this->repository->delete($transaction->id);
         });
-    }
-
-    /**
-     * Mesma regra da criação: transações simples e recorrentes entram no saldo;
-     * de um parcelamento, só a 1ª parcela.
-     */
-    private function affectsBalance(Transaction $transaction): bool
-    {
-        return $transaction->installment_number === null || $transaction->installment_number === 1;
     }
 
     public function getRecentForDashboard(string $userId, int $limit = 5): Collection
@@ -129,5 +132,10 @@ class TransactionService implements ITransactionService
     public function paginateForUser(string $userId, array $filters = [], int $perPage = 20): LengthAwarePaginator
     {
         return $this->repository->paginateForUser($userId, $filters, $perPage);
+    }
+
+    public function summaryForUser(string $userId, array $filters): array
+    {
+        return $this->repository->summaryForUser($userId, $filters);
     }
 }

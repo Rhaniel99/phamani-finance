@@ -6,6 +6,9 @@ use App\Enums\Category\Color;
 use App\Enums\Category\Icon;
 use App\Enums\EnumOptions;
 use App\Enums\RecurringFrequency;
+use App\Interfaces\Services\IContactService;
+use App\Interfaces\Services\IInvitationService;
+use App\Models\Share;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -39,6 +42,16 @@ class HandleInertiaRequests extends Middleware
                     'avatar' => $user->avatar,
                 ] : null,
             ],
+            // Contatos para a divisão de contas (usados no formulário de transação em várias páginas).
+            'contacts' => fn () => $user ? app(IContactService::class)->listForUser((string) $user->id) : [],
+            // Sino do cabeçalho. Hoje atualizado por polling (usePoll); com Reverb, um listener do Echo
+            // só precisa recarregar esta mesma prop.
+            'notifications' => fn () => $user ? [
+                'unread' => $user->unreadNotifications()->count(),
+                'pending' => app(IInvitationService::class)->pendingFor($user)->count()
+                    + Share::query()->where('recipient_user_id', $user->id)->where('status', 'pending')->count(),
+                'latest' => $user->notifications()->latest()->limit(8)->get(['id', 'data', 'read_at', 'created_at']),
+            ] : null,
             // Listas de enums usadas pelos formulários (antes eram compartilhadas pelo provider do módulo).
             'enums' => fn () => $user ? [
                 'recurringFrequencies' => EnumOptions::from(RecurringFrequency::class),

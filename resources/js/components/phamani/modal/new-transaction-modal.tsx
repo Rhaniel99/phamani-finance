@@ -9,6 +9,8 @@ interface NewTransactionModalProps {
     accounts: Account[];
     /** Quando informado, abre o modal em modo de edição. */
     transaction?: Transaction | null;
+    /** Conta pré-selecionada numa nova transação. */
+    defaultAccountId?: string;
 }
 
 export function NewTransactionModal({
@@ -17,6 +19,7 @@ export function NewTransactionModal({
     categories,
     accounts,
     transaction,
+    defaultAccountId,
 }: NewTransactionModalProps) {
     return (
         <AnimatePresence>
@@ -28,6 +31,7 @@ export function NewTransactionModal({
                     categories={categories}
                     accounts={accounts}
                     transaction={transaction}
+                    defaultAccountId={defaultAccountId}
                 />
             )}
         </AnimatePresence>

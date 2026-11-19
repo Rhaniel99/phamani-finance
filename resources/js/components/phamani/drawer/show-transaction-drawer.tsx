@@ -1,7 +1,8 @@
-import { router } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
 import {
     ArrowRight,
     Calendar,
+    Check,
     CreditCard,
     Pencil,
     Repeat,
@@ -11,11 +12,25 @@ import {
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useState } from 'react';
+import { SplitDetails } from '@/components/phamani/drawer/split-details';
+import { PaymentStatusBadge } from '@/components/phamani/payment-status-badge';
+import { canMarkPaid, payerName, paymentStatus } from '@/lib/payment';
 import { InstallmentModal } from '@/components/phamani/modal/installment-modal';
 import { useEnums } from '@/hooks/use-enums';
 import { resolveEnumLabel } from '@/lib/enum-helpers';
 import { formatCurrency, formatDate } from '@/lib/format';
-import { destroy } from '@/routes/transactions';
+import { cn } from '@/lib/utils';
+import { inbox } from '@/routes';
+import { autoPay as installmentAutoPay } from '@/routes/installments';
+import {
+    autoPay as recurringAutoPay,
+    end as endRecurring,
+} from '@/routes/recurring';
+import {
+    destroy,
+    pay as payTransaction,
+    unpay as unpayTransaction,
+} from '@/routes/transactions';
 import type { Transaction } from '@/types/phamani';
 
 interface ShowTransactionDrawerProps {
@@ -33,11 +48,34 @@ export function ShowTransactionDrawer({
     // Guarda o id da transação em confirmação: trocar de transação cancela a confirmação.
     const [confirmingId, setConfirmingId] = useState<string | null>(null);
     const [deleting, setDeleting] = useState(false);
+    const [endingId, setEndingId] = useState<string | null>(null);
     const { recurringFrequencies } = useEnums();
 
     const isIncome = transaction?.type === 'income';
     const isInstallment = !!transaction?.installment_id;
+    const isMirror = !!transaction?.mirrored_from_id;
     const confirming = !!transaction && confirmingId === transaction.id;
+
+    const recurringEnded = !!transaction?.recurring?.end_date;
+    const confirmingEnd =
+        !!transaction?.recurring && endingId === transaction.recurring.id;
+
+    function handleEndRecurring() {
+        const recurring = transaction?.recurring;
+        if (!recurring) return;
+
+        router.post(
+            endRecurring.url(recurring.id),
+            {},
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setEndingId(null);
+                    onClose();
+                },
+            },
+        );
+    }
 
     function handleDelete() {
         if (!transaction) return;
@@ -102,6 +140,14 @@ export function ShowTransactionDrawer({
                                     {isIncome ? '+' : '-'}{' '}
                                     {formatCurrency(transaction.amount)}
                                 </h2>
+                                {transaction.total_amount != null && (
+                                    <p className="mb-1 text-sm text-[#8B7355]">
+                                        Sua parte de{' '}
+                                        {formatCurrency(
+                                            transaction.total_amount,
+                                        )}
+                                    </p>
+                                )}
                                 <p className="text-lg text-[#6B4E3D]">
                                     {transaction.name}
                                 </p>
@@ -121,7 +167,12 @@ export function ShowTransactionDrawer({
                                             <CreditCard className="h-4 w-4" />
                                         }
                                         label="Conta"
-                                        value={transaction.account?.name ?? '—'}
+                                        value={
+                                            transaction.account?.name ??
+                                            (transaction.paid_by
+                                                ? `Pago por ${transaction.paid_by.name}`
+                                                : '—')
+                                        }
                                     />
                                     <MetaCard
                                         icon={<Calendar className="h-4 w-4" />}
@@ -144,9 +195,73 @@ export function ShowTransactionDrawer({
                                                         .frequency,
                                                 )}
                                             </p>
+                                            {recurringEnded && (
+                                                <p className="mt-1 text-xs text-[#F5EFE6]/70">
+                                                    Encerrada em{' '}
+                                                    {formatDate(
+                                                        transaction.recurring
+                                                            .end_date,
+                                                    )}
+                                                </p>
+                                            )}
                                         </div>
                                     )}
                                 </div>
+
+                                <PaymentStatusBlock
+                                    transaction={transaction}
+                                    onDone={onClose}
+                                />
+
+                                <SplitDetails transaction={transaction} />
+
+                                {!isMirror && (
+                                    <AutoPaySwitch transaction={transaction} />
+                                )}
+
+                                {transaction.recurring && !recurringEnded && (
+                                    <div className="rounded-3xl border border-[#D4C5A9] bg-[#E8DCC4]/50 p-6">
+                                        <p className="mb-4 text-sm text-[#6B4E3D]">
+                                            Todo vencimento o Phamani lança esta
+                                            transação repetindo o último valor.
+                                            Se mudar num mês, é só editar a
+                                            ocorrência daquele mês.
+                                        </p>
+                                        {confirmingEnd ? (
+                                            <div className="flex gap-3">
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setEndingId(null)
+                                                    }
+                                                    className="flex-1 rounded-xl border-2 border-[#D4C5A9] py-2 text-sm font-medium text-[#6B4E3D] hover:bg-[#E8DCC4]"
+                                                >
+                                                    Cancelar
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleEndRecurring}
+                                                    className="flex-1 rounded-xl bg-[#6B4E3D] py-2 text-sm font-medium text-[#F5EFE6] hover:bg-[#3D2817]"
+                                                >
+                                                    Confirmar
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setEndingId(
+                                                        transaction.recurring
+                                                            ?.id ?? null,
+                                                    )
+                                                }
+                                                className="w-full rounded-xl border-2 border-[#6B4E3D] py-2 text-sm font-medium text-[#6B4E3D] transition-colors hover:bg-[#6B4E3D] hover:text-[#F5EFE6]"
+                                            >
+                                                Encerrar recorrência
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
 
                                 {transaction.installment && (
                                     <div className="flex items-center justify-between rounded-3xl border border-[#D4C5A9] bg-[#E8DCC4]/50 p-6">
@@ -178,7 +293,25 @@ export function ShowTransactionDrawer({
                             </div>
 
                             <div className="border-t border-[#D4C5A9] bg-[#FAF7F1] p-6 md:p-8">
-                                {confirming ? (
+                                {isMirror ? (
+                                    <div className="space-y-2 text-sm text-[#6B4E3D]">
+                                        <p>
+                                            Divisão compartilhada por{' '}
+                                            <strong>
+                                                {transaction.mirrored_from?.user
+                                                    ?.name ?? 'outra pessoa'}
+                                            </strong>
+                                            . Só quem criou pode alterar os
+                                            valores.
+                                        </p>
+                                        <Link
+                                            href={inbox.url()}
+                                            className="font-medium text-[#3D2817] underline"
+                                        >
+                                            Sair da divisão em Pendências
+                                        </Link>
+                                    </div>
+                                ) : confirming ? (
                                     <div className="space-y-4">
                                         <p className="text-sm text-[#6B4E3D]">
                                             {isInstallment
@@ -267,5 +400,141 @@ function MetaCard({
             </div>
             <p className="font-medium text-[#3D2817]">{value}</p>
         </div>
+    );
+}
+
+/** Status de pagamento + ação de marcar como pago/pendente (só quem pagou). */
+function PaymentStatusBlock({
+    transaction,
+    onDone,
+}: {
+    transaction: Transaction;
+    onDone: () => void;
+}) {
+    const [busy, setBusy] = useState(false);
+    const status = paymentStatus(transaction);
+    if (!status) return null;
+
+    const isIncome = transaction.type === 'income';
+    const canMark = canMarkPaid(transaction);
+    const opts = {
+        preserveScroll: true,
+        onStart: () => setBusy(true),
+        onFinish: () => setBusy(false),
+        onSuccess: onDone,
+    };
+
+    return (
+        <div
+            className={cn(
+                'flex flex-wrap items-center justify-between gap-3 rounded-3xl border p-5',
+                status === 'overdue'
+                    ? 'border-[#A65D57] bg-[#FDF3F2]'
+                    : 'border-[#D4C5A9] bg-white',
+            )}
+        >
+            <div>
+                <div className="flex items-center gap-2">
+                    <PaymentStatusBadge status={status} isIncome={isIncome} />
+                    {transaction.paid_at && (
+                        <span className="text-xs text-[#8B7355]">
+                            em {formatDate(transaction.paid_at)}
+                        </span>
+                    )}
+                </div>
+                {!canMark && (
+                    <p className="mt-1 text-xs text-[#8B7355]">
+                        Quem marca é quem pagou
+                        {payerName(transaction)
+                            ? ` (${payerName(transaction)})`
+                            : ''}
+                        .
+                    </p>
+                )}
+            </div>
+
+            {canMark &&
+                (status === 'paid' ? (
+                    <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                            router.delete(
+                                unpayTransaction.url(transaction.id),
+                                opts,
+                            )
+                        }
+                        className="rounded-xl border-2 border-[#D4C5A9] px-4 py-2 text-sm font-medium text-[#6B4E3D] hover:bg-[#E8DCC4] disabled:opacity-50"
+                    >
+                        Voltar para pendente
+                    </button>
+                ) : (
+                    <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                            router.post(
+                                payTransaction.url(transaction.id),
+                                {},
+                                opts,
+                            )
+                        }
+                        className="flex items-center gap-2 rounded-xl bg-[#1F5428] px-4 py-2 text-sm font-medium text-white hover:bg-[#173F1E] disabled:opacity-50"
+                    >
+                        <Check className="h-4 w-4" />
+                        {isIncome ? 'Marcar como recebida' : 'Marcar como paga'}
+                    </button>
+                ))}
+        </div>
+    );
+}
+
+/** Débito automático da série (recorrência ou parcelamento) desta transação. */
+function AutoPaySwitch({ transaction }: { transaction: Transaction }) {
+    const [busy, setBusy] = useState(false);
+    const series = transaction.recurring
+        ? {
+              enabled: !!transaction.recurring.auto_pay,
+              url: recurringAutoPay.url(transaction.recurring.id),
+              label: 'recorrência',
+          }
+        : transaction.installment && transaction.installment_id
+          ? {
+                enabled: !!transaction.installment.auto_pay,
+                url: installmentAutoPay.url(transaction.installment_id),
+                label: 'parcelamento',
+            }
+          : null;
+
+    if (!series || transaction.account?.type === 'credit') return null;
+
+    return (
+        <label className="flex cursor-pointer items-start gap-3 rounded-3xl border border-[#D4C5A9] bg-white p-5">
+            <input
+                type="checkbox"
+                checked={series.enabled}
+                disabled={busy}
+                onChange={(e) =>
+                    router.post(
+                        series.url,
+                        { enabled: e.target.checked },
+                        {
+                            preserveScroll: true,
+                            onStart: () => setBusy(true),
+                            onFinish: () => setBusy(false),
+                        },
+                    )
+                }
+                className="mt-0.5 h-4 w-4 accent-[#3D2817]"
+            />
+            <span className="text-sm text-[#3D2817]">
+                Débito automático
+                <span className="block text-xs text-[#8B7355]">
+                    Vale para todo o {series.label}: no vencimento já entra como
+                    pago. Ao ligar, o que já venceu e está em aberto é marcado
+                    como pago.
+                </span>
+            </span>
+        </label>
     );
 }

@@ -31,3 +31,15 @@ export function today(): string {
 
     return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
+
+/** "2026-12-01" → "dezembro de 2026" */
+export function formatMonth(date: string | null | undefined): string {
+    if (!date) return '—';
+
+    const [year, month] = date.slice(0, 7).split('-').map(Number);
+
+    return new Date(year, month - 1, 1).toLocaleDateString('pt-BR', {
+        month: 'long',
+        year: 'numeric',
+    });
+}

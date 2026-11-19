@@ -27,7 +27,13 @@ interface ITransactionService
     public function getRecentForDashboard(string $userId, int $limit = 5): Collection;
 
     /**
-     * @param  array{account_id?: ?string, category_id?: ?string, type?: ?string, month?: ?string}  $filters
+     * @param  array{account_id?: ?string, category_id?: ?string, type?: ?string, month?: ?string, search?: ?string, kind?: ?string}  $filters
      */
     public function paginateForUser(string $userId, array $filters = [], int $perPage = 20): LengthAwarePaginator;
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return array{income: float, expense: float, balance: float, due: float, due_count: int, overdue: float, overdue_count: int, count: int}
+     */
+    public function summaryForUser(string $userId, array $filters): array;
 }

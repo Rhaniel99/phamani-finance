@@ -28,10 +28,17 @@ class UpdateTransactionData extends Data
 
         public string $category_id,
 
-        public string $account_id,
+        /** Null quando outra pessoa pagou (divisão). */
+        public ?string $account_id,
 
         #[Date]
         public string $date,
+
+        /** Só para parcelas: repete o novo valor nas parcelas seguintes. */
+        public bool $apply_to_following = false,
+
+        /** Divisão com contatos (null = sem divisão). */
+        public ?SplitData $split = null,
     ) {}
 
     /**
@@ -46,8 +53,10 @@ class UpdateTransactionData extends Data
                 'required', 'uuid',
                 Rule::exists('categories', 'id')->where('user_id', Auth::id()),
             ],
+            // Obrigatória, a não ser que outra pessoa tenha pago (divisão com "quem pagou").
             'account_id' => [
-                'required', 'uuid',
+                Rule::requiredIf(fn () => ! filled(request()->input('split.paid_by_contact_id'))),
+                'nullable', 'uuid',
                 Rule::exists('accounts', 'id')->where('user_id', Auth::id()),
             ],
         ];

@@ -26,7 +26,8 @@ class StoreTransactionData extends Data
 
         public string $category_id,
 
-        public string $account_id,
+        /** Null quando outra pessoa pagou (divisão). */
+        public ?string $account_id,
 
         #[Date]
         public string $date,
@@ -35,6 +36,20 @@ class StoreTransactionData extends Data
 
         #[RequiredIf('is_installment', true), Min(2), Max(360)]
         public ?int $installments_count = null,
+
+        /** Número da primeira parcela a lançar (ex.: 15 num parcelamento já na 15/24). */
+        #[Min(1), Max(360)]
+        public int $installment_start = 1,
+
+        /** 'total' = valor informado é o total; 'installment' = é o valor de cada parcela. */
+        #[In(['total', 'installment'])]
+        public string $amount_mode = 'total',
+
+        /** Divisão com contatos (null = sem divisão). */
+        public ?SplitData $split = null,
+
+        /** Débito automático (parcelado/recorrente): no vencimento já marca como pago. */
+        public bool $auto_pay = false,
 
         public bool $is_recurring = false,
 
@@ -54,8 +69,10 @@ class StoreTransactionData extends Data
                 'required', 'uuid',
                 Rule::exists('categories', 'id')->where('user_id', Auth::id()),
             ],
+            // Obrigatória, a não ser que outra pessoa tenha pago (divisão com "quem pagou").
             'account_id' => [
-                'required', 'uuid',
+                Rule::requiredIf(fn () => ! filled(request()->input('split.paid_by_contact_id'))),
+                'nullable', 'uuid',
                 Rule::exists('accounts', 'id')->where('user_id', Auth::id()),
             ],
         ];

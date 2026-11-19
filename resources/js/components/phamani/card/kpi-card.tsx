@@ -10,6 +10,8 @@ interface KPICardProps {
     trendUp?: boolean;
     icon: ElementType;
     variant?: 'default' | 'primary';
+    /** Linha extra abaixo do valor (ex.: faturas em aberto). */
+    footnote?: string;
 }
 
 export function KPICard({
@@ -19,6 +21,7 @@ export function KPICard({
     trendUp,
     icon: Icon,
     variant = 'default',
+    footnote,
 }: KPICardProps) {
     const primary = variant === 'primary';
 
@@ -65,6 +68,11 @@ export function KPICard({
 
             <p className="mb-1 text-sm font-medium text-[#8B7355]">{title}</p>
             <h3 className="text-3xl font-bold text-[#3D2817]">{value}</h3>
+            {footnote && (
+                <p className="mt-2 text-xs font-medium text-[#6B4E3D]">
+                    {footnote}
+                </p>
+            )}
         </Card>
     );
 }

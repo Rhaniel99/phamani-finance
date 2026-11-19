@@ -14,6 +14,8 @@ interface TransactionModalLayoutProps {
     accounts: Account[];
     /** Quando informado, o modal edita esta transação. */
     transaction?: Transaction | null;
+    /** Conta pré-selecionada numa nova transação (ex.: página do cartão). */
+    defaultAccountId?: string;
 }
 
 export function TransactionModalLayout({
@@ -21,6 +23,7 @@ export function TransactionModalLayout({
     categories,
     accounts,
     transaction,
+    defaultAccountId,
 }: TransactionModalLayoutProps) {
     const [accountDrawerOpen, setAccountDrawerOpen] = useState(false);
     const [categoryDrawerOpen, setCategoryDrawerOpen] = useState(false);
@@ -28,6 +31,7 @@ export function TransactionModalLayout({
     const { form, submit, isEditing } = useTransactionForm(
         transaction,
         onClose,
+        defaultAccountId,
     );
 
     // Fecha com ESC (quando nenhum drawer estiver aberto)
@@ -71,6 +75,7 @@ export function TransactionModalLayout({
                         accounts={accounts}
                         onSubmit={submit}
                         isEditing={isEditing}
+                        isInstallmentParcel={!!transaction?.installment_id}
                         onCreateCategory={() => setCategoryDrawerOpen(true)}
                         onCreateAccount={() => setAccountDrawerOpen(true)}
                     />
@@ -86,6 +91,7 @@ export function TransactionModalLayout({
             <CreateAccountDrawer
                 isOpen={accountDrawerOpen}
                 onClose={() => setAccountDrawerOpen(false)}
+                accounts={accounts}
             />
             <CreateCategoryDrawer
                 isOpen={categoryDrawerOpen}

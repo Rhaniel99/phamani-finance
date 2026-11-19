@@ -1,5 +1,9 @@
-import { ArrowLeft, LogOut, Wallet } from 'lucide-react';
+import { Link } from '@inertiajs/react';
+import { ArrowLeft, Inbox, LogOut, Users, Wallet } from 'lucide-react';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
+import { ContactsModal } from '@/components/phamani/modal/contacts-modal';
+import { NotificationsBell } from '@/components/phamani/notifications-bell';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
     DropdownMenu,
@@ -10,6 +14,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/hooks/use-auth';
+import { inbox } from '@/routes';
 
 interface DashboardHeaderProps {
     title: string;
@@ -25,6 +30,7 @@ export function DashboardHeader({
     actions,
 }: DashboardHeaderProps) {
     const { user, avatarUrl, name, logout } = useAuth();
+    const [contactsOpen, setContactsOpen] = useState(false);
 
     return (
         <header className="mb-10 flex items-center justify-between gap-4">
@@ -56,6 +62,8 @@ export function DashboardHeader({
 
             <div className="flex items-center gap-4">
                 {actions}
+
+                <NotificationsBell />
 
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -90,6 +98,19 @@ export function DashboardHeader({
                             </p>
                         </DropdownMenuLabel>
                         <DropdownMenuSeparator />
+                        <DropdownMenuItem asChild className="cursor-pointer">
+                            <Link href={inbox.url()}>
+                                <Inbox className="mr-2" />
+                                Pendências
+                            </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                            onSelect={() => setContactsOpen(true)}
+                            className="cursor-pointer"
+                        >
+                            <Users className="mr-2" />
+                            Contatos
+                        </DropdownMenuItem>
                         <DropdownMenuItem
                             onSelect={logout}
                             className="cursor-pointer"
@@ -100,6 +121,7 @@ export function DashboardHeader({
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>
+            <ContactsModal open={contactsOpen} onOpenChange={setContactsOpen} />
         </header>
     );
 }

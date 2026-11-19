@@ -1,10 +1,14 @@
-import { Calendar, Receipt } from 'lucide-react';
+import { Calendar, Receipt, Users } from 'lucide-react';
 import { motion } from 'motion/react';
 import { CategoryIcon } from '@/components/phamani/category-icon';
 import { useEnums } from '@/hooks/use-enums';
 import { resolveEnumLabel } from '@/lib/enum-helpers';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { getNextTransactionDate } from '@/lib/transaction-dates';
+import { ContactAvatar } from '@/components/phamani/contact-avatar';
+import { useAuth } from '@/hooks/use-auth';
+import { useContacts } from '@/hooks/use-contacts';
+import { splitBreakdown } from '@/lib/split';
 import { getInstallmentValue } from '@/lib/transaction-math';
 import type { Account, Category, TransactionFormData } from '@/types/phamani';
 
@@ -20,6 +24,8 @@ export function TransactionPreview({
     accounts,
 }: TransactionPreviewProps) {
     const { recurringFrequencies } = useEnums();
+    const contacts = useContacts();
+    const { avatarUrl } = useAuth();
 
     const category = categories.find((c) => c.id === data.category_id) ?? null;
     const account = accounts.find((a) => a.id === data.account_id) ?? null;
@@ -27,6 +33,8 @@ export function TransactionPreview({
     const installmentValue = getInstallmentValue(
         amount,
         data.installments_count,
+        data.installment_start,
+        data.amount_mode,
     );
     const nextDate = getNextTransactionDate(data);
     const frequencyLabel = resolveEnumLabel(
@@ -34,6 +42,14 @@ export function TransactionPreview({
         data.frequency,
     )?.toLowerCase();
     const isIncome = data.type === 'income';
+
+    // Divisão: no parcelado é por parcela.
+    const splitBase =
+        data.is_installment && installmentValue ? installmentValue : amount;
+    const breakdown = splitBreakdown(splitBase, data.split);
+    const nameOf = (id: string | null) =>
+        id === null ? 'Você' : (contacts.find((c) => c.id === id)?.name ?? '—');
+    const payerName = nameOf(data.split?.paid_by_contact_id ?? null);
 
     return (
         <div className="relative hidden w-1/2 flex-col items-center justify-center overflow-hidden border-l-2 border-[#D4C5A9] bg-[#E8DCC4]/50 p-12 md:flex">
@@ -79,6 +95,64 @@ export function TransactionPreview({
                 </div>
 
                 <div className="space-y-4">
+                    {breakdown.length > 0 && (
+                        <div className="rounded-xl bg-white/50 p-3">
+                            <div className="mb-2 flex items-center justify-between">
+                                <span className="flex items-center gap-2 text-sm font-bold text-[#3D2817]">
+                                    <Users className="h-4 w-4 text-[#6B4E3D]" />
+                                    Divisão
+                                    {data.is_installment && (
+                                        <span className="text-xs font-normal text-[#8B7355]">
+                                            por parcela
+                                        </span>
+                                    )}
+                                </span>
+                                <span className="text-xs text-[#8B7355]">
+                                    Pago por{' '}
+                                    <strong className="text-[#3D2817]">
+                                        {payerName === 'Você'
+                                            ? 'você'
+                                            : payerName}
+                                    </strong>
+                                </span>
+                            </div>
+                            <ul className="space-y-1">
+                                {breakdown.map((b) => (
+                                    <li
+                                        key={b.contact_id ?? 'me'}
+                                        className="flex items-center justify-between text-sm"
+                                    >
+                                        <span
+                                            className={
+                                                b.contact_id === null
+                                                    ? 'flex items-center gap-2 font-semibold text-[#3D2817]'
+                                                    : 'flex items-center gap-2 text-[#6B4E3D]'
+                                            }
+                                        >
+                                            <ContactAvatar
+                                                name={nameOf(b.contact_id)}
+                                                avatar={
+                                                    b.contact_id === null
+                                                        ? avatarUrl
+                                                        : contacts.find(
+                                                              (c) =>
+                                                                  c.id ===
+                                                                  b.contact_id,
+                                                          )?.linked_user?.avatar
+                                                }
+                                                className="h-6 w-6 text-[10px]"
+                                            />
+                                            {nameOf(b.contact_id)}
+                                        </span>
+                                        <span className="font-bold text-[#3D2817]">
+                                            {formatCurrency(b.amount)}
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+
                     <div className="flex items-center gap-4 rounded-xl bg-white/50 p-3">
                         {category ? (
                             <CategoryIcon
@@ -124,7 +198,8 @@ export function TransactionPreview({
                             {data.is_installment && (
                                 <>
                                     <p className="text-xs text-[#8B7355]">
-                                        Parcela 1 de {data.installments_count}
+                                        Parcela {data.installment_start || 1} de{' '}
+                                        {data.installments_count}
                                     </p>
                                     <p className="text-xs text-[#8B7355]">
                                         {formatCurrency(installmentValue)} por

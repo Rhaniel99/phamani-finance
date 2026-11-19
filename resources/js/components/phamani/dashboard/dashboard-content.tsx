@@ -51,10 +51,15 @@ export function DashboardContent({
         <>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
                 <KPICard
-                    title="Saldo Total"
+                    title="Saldo em contas"
                     value={formatCurrency(kpis.total_balance)}
                     icon={Wallet}
                     variant="primary"
+                    footnote={
+                        kpis.open_invoices > 0
+                            ? `Faturas em aberto: ${formatCurrency(kpis.open_invoices)}`
+                            : undefined
+                    }
                 />
                 <KPICard
                     title="Receitas do mês"
@@ -66,6 +71,11 @@ export function DashboardContent({
                 <KPICard
                     title="Despesas do mês"
                     value={formatCurrency(kpis.expense.value)}
+                    footnote={
+                        kpis.overdue.count > 0
+                            ? `${kpis.overdue.count} atrasada${kpis.overdue.count > 1 ? 's' : ''} · ${formatCurrency(kpis.overdue.amount)}`
+                            : undefined
+                    }
                     trend={formatTrend(kpis.expense.trend)}
                     trendUp={kpis.expense.trend?.direction === 'down'}
                     icon={TrendingDown}

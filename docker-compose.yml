@@ -22,6 +22,16 @@ services:
       postgres:
         condition: service_healthy
 
+  # Tarefas agendadas (recorrências e saldo por data): php artisan schedule:work
+  scheduler:
+    <<: *app
+    container_name: phamani_scheduler
+    restart: unless-stopped
+    command: ["php", "artisan", "schedule:work"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   nginx:
     image: nginx:stable-alpine
     container_name: phamani_nginx
