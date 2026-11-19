@@ -82,7 +82,7 @@ echo "DB_PASSWORD=$(openssl rand -hex 24)"
 nano ~/apps/phamani/.env.production
 ```
 
-Preencha `APP_KEY`, `DB_PASSWORD`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e `CLOUDFLARE_TUNNEL_TOKEN`.
+Preencha `APP_KEY`, `DB_PASSWORD`, `ALLOWED_EMAILS`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e `CLOUDFLARE_TUNNEL_TOKEN`.
 
 > **Guarde o APP_KEY e a DB_PASSWORD** num gerenciador de senhas. Se trocar o `APP_KEY`, todo mundo é deslogado.
 > Se perder a `DB_PASSWORD`, os backups continuam valendo, mas o volume atual fica inacessível sem ela.
@@ -137,14 +137,26 @@ Depois abra https://phamani.lukisa.com.br e entre com o Google.
 ## Dia a dia
 
 ```bash
-cd <pasta do checkout>          # a do runner fica em ~/actions-runner-phamani/_work/<repo>/<repo>
-alias pdc='docker compose -p phamani -f docker-compose.prod.yml --env-file ~/apps/phamani/.env.production'
+# atalho (coloque no ~/.bashrc)
+pdc() {
+  PHAMANI_ENV_FILE=~/apps/phamani/.env.production \
+  docker compose -p phamani \
+    -f ~/actions-runner-phamani/_work/phamani-finance/phamani-finance/docker-compose.prod.yml \
+    --env-file ~/apps/phamani/.env.production "$@"
+}
 
-pdc logs -f app                  # logs
-pdc exec app php artisan tinker  # console
-pdc exec app php artisan phamani:process-due   # rodar o agendamento na mão
-pdc restart                      # reiniciar
+pdc ps                                          # status
+pdc logs -f app                                 # logs
+pdc up -d --force-recreate app scheduler        # aplicar mudanças do .env.production
+pdc exec app php artisan tinker                 # console
+pdc exec app php artisan phamani:process-due    # rodar o agendamento na mão
 ```
+
+### Banco pelo DBeaver (túnel SSH)
+
+O Postgres escuta só em `127.0.0.1:5433` do marvin. No DBeaver: aba **SSH** → "Use SSH Tunnel",
+host `192.168.100.11`, usuário `pholaroid`, chave pública; aba **Main** → host `localhost`, porta `5433`,
+banco/usuário `phamani`, senha = `DB_PASSWORD`.
 
 O deploy é só dar `git push` na `main`.
 

@@ -32,6 +32,8 @@ dc run --rm --no-deps app php artisan migrate --force --no-interaction
 
 echo "→ Subindo os serviços"
 dc up -d --remove-orphans
+# Garante que app, scheduler e web usem as imagens recém-construídas e o .env atual
+dc up -d --no-deps --force-recreate app scheduler web
 
 echo "→ Checando a aplicação"
 PORT="$(grep -E '^APP_PORT=' "$ENV_FILE" | cut -d= -f2- | tr -d '"')"
