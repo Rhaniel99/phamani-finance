@@ -64,6 +64,9 @@ services:
       POSTGRES_USER: ${DB_USERNAME:-phamani}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?Defina DB_PASSWORD no .env.production}
       TZ: ${APP_TIMEZONE:-America/Manaus}
+    # Só no localhost do marvin: acesso pelo DBeaver via túnel SSH (nunca exposto na rede).
+    ports:
+      - "127.0.0.1:${DB_FORWARD_PORT:-5433}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:

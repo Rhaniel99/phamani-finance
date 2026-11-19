@@ -39,6 +39,14 @@ class GoogleAuthController extends Controller
             return to_route('login');
         }
 
+        if (! $this->isAllowed((string) $googleUser->getEmail())) {
+            Log::notice('Login com Google bloqueado (e-mail fora de ALLOWED_EMAILS)', ['email' => $googleUser->getEmail()]);
+
+            Inertia::flash('toast', ['type' => 'error', 'message' => 'Esta conta Google não tem acesso ao Phamani.']);
+
+            return to_route('login');
+        }
+
         $user = User::updateOrCreate(
             ['google_id' => (string) $googleUser->getId()],
             [
@@ -58,6 +66,17 @@ class GoogleAuthController extends Controller
         $request->session()->regenerate();
 
         return redirect()->intended(route('dashboard'));
+    }
+
+    /**
+     * Sem ALLOWED_EMAILS configurado, qualquer conta Google entra (útil em desenvolvimento).
+     */
+    private function isAllowed(string $email): bool
+    {
+        /** @var list<string> $allowed */
+        $allowed = config('services.google.allowed_emails', []);
+
+        return $allowed === [] || in_array(mb_strtolower(trim($email)), $allowed, true);
     }
 
     /**

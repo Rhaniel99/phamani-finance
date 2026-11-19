@@ -73,4 +73,25 @@ class GoogleAuthTest extends TestCase
 
         $this->assertGuest();
     }
+
+    public function test_email_outside_allowlist_cannot_log_in(): void
+    {
+        config(['services.google.allowed_emails' => ['bia@gmail.com']]);
+        $this->fakeGoogleUser(email: 'ana@gmail.com');
+
+        $this->get(route('auth.google.callback'))->assertRedirect(route('login'));
+
+        $this->assertGuest();
+        $this->assertDatabaseCount('users', 0);
+    }
+
+    public function test_allowlist_is_case_insensitive(): void
+    {
+        config(['services.google.allowed_emails' => ['ana@gmail.com']]);
+        $this->fakeGoogleUser(email: 'Ana@Gmail.com');
+
+        $this->get(route('auth.google.callback'))->assertRedirect(route('dashboard'));
+
+        $this->assertAuthenticated();
+    }
 }

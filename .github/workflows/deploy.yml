@@ -15,7 +15,7 @@ jobs:
     name: Testes
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: shivammathur/setup-php@v2
         with:
@@ -23,13 +23,13 @@ jobs:
           extensions: pdo_sqlite, pdo_pgsql, bcmath, intl, zip
           coverage: none
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '24'
           cache: npm
 
       - name: Cache do Composer
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.composer/cache/files
           key: composer-${{ hashFiles('composer.lock', 'composer.json') }}
@@ -57,7 +57,7 @@ jobs:
     runs-on: [self-hosted, phamani]
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Deploy
         run: ./deploy/deploy.sh

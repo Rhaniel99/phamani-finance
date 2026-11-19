@@ -39,6 +39,11 @@ return [
         'client_id' => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
         'redirect' => env('GOOGLE_REDIRECT_URI', '/auth/google/callback'),
+        // E-mails que podem entrar (separados por vírgula). Vazio = qualquer conta Google.
+        'allowed_emails' => array_values(array_filter(array_map(
+            fn (string $email) => mb_strtolower(trim($email)),
+            explode(',', (string) env('ALLOWED_EMAILS', '')),
+        ))),
     ],
 
 ];
