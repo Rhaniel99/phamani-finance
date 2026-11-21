@@ -77,6 +77,8 @@ export interface Receivable extends AcertoSummary {
         name: string;
         avatar: string | null;
         linked: boolean;
+        /** Usuário do Phamani por trás do contato. */
+        user_id: string | null;
     };
 }
 

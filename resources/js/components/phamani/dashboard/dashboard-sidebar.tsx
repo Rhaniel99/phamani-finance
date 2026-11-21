@@ -2,7 +2,6 @@ import { Link } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { CategoryIcon } from '@/components/phamani/category-icon';
-import { ReceivablesCard } from '@/components/phamani/dashboard/receivables-card';
 import { AccountsList } from '@/components/phamani/list/accounts-list';
 import { CreateAccountDrawer } from '@/components/phamani/drawer/create-account-drawer';
 import { AccountsListModal } from '@/components/phamani/modal/accounts-list-modal';
@@ -13,26 +12,17 @@ import { formatCurrency, formatDate, today } from '@/lib/format';
 import { paymentStatus } from '@/lib/payment';
 import { displayAmount, isFullyReimbursed, isThirdParty } from '@/lib/split';
 import { index as transactionsIndex } from '@/routes/transactions';
-import type {
-    Account,
-    Payable,
-    Receivable,
-    Transaction,
-} from '@/types/phamani';
+import type { Account, Transaction } from '@/types/phamani';
 
 interface DashboardSidebarProps {
     recentTransactions: Transaction[];
     accounts: Account[];
-    receivables: Receivable[];
-    payables: Payable[];
     onNewTransaction: () => void;
 }
 
 export function DashboardSidebar({
     recentTransactions,
     accounts,
-    receivables,
-    payables,
     onNewTransaction,
 }: DashboardSidebarProps) {
     const [accountsModalOpen, setAccountsModalOpen] = useState(false);
@@ -117,12 +107,6 @@ export function DashboardSidebar({
                     ))}
                 </div>
             </div>
-
-            <ReceivablesCard
-                receivables={receivables}
-                payables={payables}
-                accounts={accounts}
-            />
 
             <AccountsList
                 accounts={accounts}

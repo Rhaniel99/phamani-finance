@@ -59,6 +59,8 @@ class ReimbursementService implements IReimbursementService
                         'name' => $contact->name,
                         'avatar' => $contact->linkedUser?->avatar,
                         'linked' => $contact->linked_user_id !== null,
+                        // Usuário do Phamani por trás do contato (para mostrar o líquido com "A pagar").
+                        'user_id' => $contact->linked_user_id,
                     ],
                     ...$this->summary($open->where('contact_id', $contactId)->values(), $current),
                     'pending' => $pending->where('contact_id', $contactId)->map(fn (Settlement $s) => $this->settlementData($s))->values()->all(),

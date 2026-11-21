@@ -1,5 +1,6 @@
 import { Head } from '@inertiajs/react';
 import { useState } from 'react';
+import { AcertoPanel } from '@/components/phamani/dashboard/acerto-panel';
 import { DashboardContent } from '@/components/phamani/dashboard/dashboard-content';
 import { DashboardHeader } from '@/components/phamani/dashboard/dashboard-header';
 import { DashboardMain } from '@/components/phamani/dashboard/dashboard-main';
@@ -54,19 +55,25 @@ export default function Dashboard({
 
                 <DashboardMain
                     left={
-                        <DashboardContent
-                            kpis={kpis}
-                            period={period}
-                            cashFlow={cashFlow}
-                            categoryPie={categoryPie}
-                        />
+                        <>
+                            <DashboardContent
+                                kpis={kpis}
+                                period={period}
+                                cashFlow={cashFlow}
+                                categoryPie={categoryPie}
+                            />
+                            {/* Acerto na largura toda: a lateral fica só com o dia a dia */}
+                            <AcertoPanel
+                                receivables={receivables}
+                                payables={payables}
+                                accounts={accounts}
+                            />
+                        </>
                     }
                     right={
                         <DashboardSidebar
                             recentTransactions={recentTransactions}
                             accounts={accounts}
-                            receivables={receivables}
-                            payables={payables}
                             onNewTransaction={() =>
                                 setIsNewTransactionOpen(true)
                             }
