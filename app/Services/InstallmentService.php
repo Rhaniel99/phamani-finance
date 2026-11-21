@@ -88,7 +88,7 @@ class InstallmentService implements IInstallmentService
                     'date' => $start->addMonthsNoOverflow($index)->toDateString(),
                 ]);
 
-                $this->splits->sync($parcel, $parts['shares']);
+                $this->splits->sync($parcel, $parts['shares'], $parts['tracked']);
 
                 // Cada parcela entra no saldo quando a sua data chega.
                 $this->balance->applyIfDue($parcel);
@@ -116,7 +116,7 @@ class InstallmentService implements IInstallmentService
                     'total_amount' => $parts['total_amount'],
                     'paid_by_contact_id' => $parts['paid_by_contact_id'],
                 ]);
-                $this->splits->sync($next, $parts['shares']);
+                $this->splits->sync($next, $parts['shares'], $parts['tracked']);
 
                 $this->balance->applyIfDue($next);
             }

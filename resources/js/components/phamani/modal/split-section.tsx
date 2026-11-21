@@ -45,6 +45,11 @@ export function SplitSection({
     const people = selectedIds.length + (includeMe ? 1 : 0);
     const nameOf = (id: string | null) =>
         id === null ? 'Você' : (contacts.find((c) => c.id === id)?.name ?? '—');
+    // Acerto do mês: quem desta divisão é cobrado (contatos com "cobrar" ligado).
+    const track = split?.track !== false;
+    const trackable = selectedIds.filter(
+        (id) => contacts.find((c) => c.id === id)?.track_debts !== false,
+    );
 
     function update(patch: Partial<SplitForm>) {
         if (split) onChange({ ...split, ...patch });
@@ -407,6 +412,31 @@ export function SplitSection({
                                         </p>
                                     )}
                                 </div>
+                            )}
+
+                            {/* Acerto do mês: só quando você pagou */}
+                            {includeMe && !split.paid_by_contact_id && (
+                                <label className="flex cursor-pointer items-start justify-between gap-3 rounded-xl bg-[#FBF7F1] p-3">
+                                    <span className="text-xs text-[#6B4E3D]">
+                                        <strong className="block text-sm text-[#3D2817]">
+                                            Cobrar no acerto
+                                        </strong>
+                                        {!track
+                                            ? 'Desligado: ninguém desta divisão é cobrado.'
+                                            : trackable.length > 0
+                                              ? `Entram no acerto: ${trackable.map(nameOf).join(', ')}.`
+                                              : 'Ninguém desta divisão está com cobrança ligada (ajuste em Contatos).'}
+                                    </span>
+                                    <input
+                                        type="checkbox"
+                                        role="switch"
+                                        checked={track}
+                                        onChange={(e) =>
+                                            update({ track: e.target.checked })
+                                        }
+                                        className="mt-1 h-4 w-4 shrink-0 accent-[#3D2817]"
+                                    />
+                                </label>
                             )}
                         </>
                     )}

@@ -13,6 +13,7 @@ use Spatie\LaravelData\Data;
  *
  * - mode "equal": partes iguais; "custom": valor de cada um (a soma tem que bater com o valor informado).
  * - paid_by_contact_id: quem pagou (null = você). Se foi outra pessoa, nenhuma conta sua é afetada.
+ * - track: as partes entram no acerto de quem pagou (só se foi você e só para contatos com cobrança ligada).
  * - include_me: false = compra para outra pessoa — você pagou, sua parte é zero e o valor fica "a receber".
  */
 class SplitData extends Data
@@ -28,6 +29,9 @@ class SplitData extends Data
         public ?string $paid_by_contact_id = null,
 
         public bool $include_me = true,
+
+        /** Cobrar as partes no acerto (só de quem tem "cobrar" ligado nos Contatos). */
+        public bool $track = true,
     ) {}
 
     /**

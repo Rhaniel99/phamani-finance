@@ -30,15 +30,8 @@ class TransactionRepository extends CoreRepository implements ITransactionReposi
                     ->selectRaw('min(t2.installment_number)')
                     ->from('transactions as t2')
                     ->whereColumn('t2.installment_id', 'transactions.installment_id')))
-            ->with([
-                'account:id,name,type',
-                'category:id,name,color,icon',
-                'splits:id,transaction_id,contact_id,amount,reimbursed_at,reimbursement_account_id,reimbursed_amount',
-                'splits.contact:id,name',
-                'splits.reimbursementAccount:id,name',
-                'tags:id,name',
-                'paidBy:id,name,linked_user_id',
-            ])
+            // Mesmas relações da lista: o drawer abre daqui também (cópias, status do cartão…).
+            ->with($this->listRelations())
             ->orderByDesc('created_at')
             ->orderByDesc('date')
             ->limit($limit)
@@ -130,29 +123,42 @@ class TransactionRepository extends CoreRepository implements ITransactionReposi
     public function paginateForUser(string $userId, array $filters = [], int $perPage = 20): LengthAwarePaginator
     {
         return $this->filtered($userId, $filters)
-            ->with([
-                'account:id,name,type',
-                'category:id,name,color,icon',
-                'splits:id,transaction_id,contact_id,amount,reimbursed_at,reimbursement_account_id,reimbursed_amount',
-                'splits.contact:id,name',
-                'splits.reimbursementAccount:id,name',
-                'tags:id,name',
-                'paidBy:id,name,linked_user_id',
-                'mirroredFrom:id,user_id,account_id,total_amount,paid_by_contact_id',
-                'mirroredFrom.account:id,type',
-                'mirroredFrom.user:id,name,avatar',
-                'mirroredFrom.paidBy:id,name,linked_user_id',
-                'mirroredFrom.splits:id,transaction_id,contact_id,amount',
-                'mirroredFrom.splits.contact:id,name,linked_user_id',
-                'shareLinks:id,share_id,source_transaction_id,mirror_transaction_id',
-                'shareLinks.share:id,status,owner_contact_id',
-                'recurring:id,frequency,end_date,auto_pay',
-                'installment:id,name,installments,installment_amount,total_amount,auto_pay',
-                'installment.transactions:id,installment_id,installment_number,date,amount',
-            ])
+            ->with($this->listRelations())
             ->orderByDesc('date')
             ->orderByDesc('created_at')
             ->paginate($perPage)
             ->withQueryString();
+    }
+
+    /**
+     * Relações usadas na lista, nos recentes e no drawer.
+     *
+     * @return list<string>
+     */
+    private function listRelations(): array
+    {
+        return [
+            'account:id,name,type',
+            'category:id,name,color,icon',
+            'splits:id,transaction_id,contact_id,amount,reimbursed_at,reimbursement_account_id,reimbursed_amount,tracked,settlement_id',
+            'splits.settlement:id,status',
+            'splits.contact:id,name',
+            'splits.reimbursementAccount:id,name',
+            'tags:id,name',
+            'paidBy:id,name,linked_user_id',
+            'mirroredFrom:id,user_id,account_id,invoice_id,date,total_amount,paid_by_contact_id',
+            'mirroredFrom.account:id,type',
+            'mirroredFrom.invoice:id,due_date',
+            'mirroredFrom.user:id,name,avatar',
+            'mirroredFrom.paidBy:id,name,linked_user_id',
+            'mirroredFrom.splits:id,transaction_id,contact_id,amount,tracked,reimbursed_at,settlement_id',
+            'mirroredFrom.splits.settlement:id,status',
+            'mirroredFrom.splits.contact:id,name,linked_user_id',
+            'shareLinks:id,share_id,source_transaction_id,mirror_transaction_id',
+            'shareLinks.share:id,status,owner_contact_id',
+            'recurring:id,frequency,end_date,auto_pay',
+            'installment:id,name,installments,installment_amount,total_amount,auto_pay',
+            'installment.transactions:id,installment_id,installment_number,date,amount',
+        ];
     }
 }

@@ -62,7 +62,7 @@ class RecurringTransactionService implements IRecurringTransactionService
                 'date' => $date->toDateString(),
             ]);
 
-            $this->splits->sync($first, $parts['shares']);
+            $this->splits->sync($first, $parts['shares'], $parts['tracked']);
 
             $this->balance->applyIfDue($first);
 

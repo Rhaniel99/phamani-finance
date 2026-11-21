@@ -11,6 +11,7 @@ use App\Http\Controllers\InboxController;
 use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\RecurringTransactionController;
 use App\Http\Controllers\ReimbursementController;
+use App\Http\Controllers\SettlementController;
 use App\Http\Controllers\ShareController;
 use App\Http\Controllers\TagController;
 use App\Http\Controllers\TransactionController;
@@ -39,6 +40,12 @@ Route::middleware('auth')->group(function () {
     // Compra para outra pessoa: "a receber"
     Route::post('receivables/{contact}/receive', [ReimbursementController::class, 'receive'])->name('receivables.receive');
     Route::delete('receivables/{split}', [ReimbursementController::class, 'undo'])->name('receivables.undo');
+
+    // Acerto entre usuários: "paguei" (quem deve) → confirmar/recusar (quem recebe)
+    Route::post('payables/{creditor}/pay', [SettlementController::class, 'pay'])->name('payables.pay');
+    Route::post('settlements/{settlement}/confirm', [SettlementController::class, 'confirm'])->name('settlements.confirm');
+    Route::post('settlements/{settlement}/reject', [SettlementController::class, 'reject'])->name('settlements.reject');
+    Route::delete('settlements/{settlement}', [SettlementController::class, 'cancel'])->name('settlements.cancel');
 
     Route::get('transactions', [TransactionController::class, 'index'])->name('transactions.index');
     Route::post('transactions', [TransactionController::class, 'store'])->name('transactions.store');

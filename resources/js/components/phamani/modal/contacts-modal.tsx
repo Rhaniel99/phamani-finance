@@ -171,6 +171,14 @@ function ContactRow({
         );
     }
 
+    function toggleTracking() {
+        router.put(
+            updateContact.url(contact.id),
+            { name: contact.name, track_debts: contact.track_debts === false },
+            { preserveState: true, preserveScroll: true },
+        );
+    }
+
     function unlink() {
         router.post(
             unlinkContact.url(contact.id),
@@ -268,6 +276,24 @@ function ContactRow({
                     </button>
                 </div>
             </div>
+
+            <label className="mt-2 flex cursor-pointer items-center justify-between gap-2 border-t border-[#F0E8D8] pt-2 text-xs text-[#6B4E3D]">
+                <span>
+                    Cobrar no acerto do mês
+                    <span className="block text-[11px] text-[#8B7355]">
+                        Divisões que você paga entram no que {contact.name} te
+                        deve.
+                    </span>
+                </span>
+                <input
+                    type="checkbox"
+                    role="switch"
+                    checked={contact.track_debts !== false}
+                    onChange={toggleTracking}
+                    aria-label={`Cobrar ${contact.name} no acerto`}
+                    className="h-4 w-4 accent-[#3D2817]"
+                />
+            </label>
 
             {inviting && !contact.linked_user && (
                 <div className="mt-3 flex gap-2">
