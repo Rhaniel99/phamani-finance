@@ -14,11 +14,12 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useState } from 'react';
 import { SplitDetails } from '@/components/phamani/drawer/split-details';
 import { PaymentStatusBadge } from '@/components/phamani/payment-status-badge';
-import { canMarkPaid, payerName, paymentStatus } from '@/lib/payment';
+import { canMarkPaid, isOnCard, payerName, paymentStatus } from '@/lib/payment';
 import { InstallmentModal } from '@/components/phamani/modal/installment-modal';
 import { useEnums } from '@/hooks/use-enums';
 import { resolveEnumLabel } from '@/lib/enum-helpers';
 import { displayAmount, isThirdParty } from '@/lib/split';
+import { TagChips } from '@/components/phamani/tag-input';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { inbox } from '@/routes';
@@ -159,6 +160,10 @@ export function ShowTransactionDrawer({
                                 <p className="text-lg text-[#6B4E3D]">
                                     {transaction.name}
                                 </p>
+                                <TagChips
+                                    tags={transaction.tags}
+                                    className="mt-2"
+                                />
                             </div>
 
                             <div className="flex-1 space-y-8 overflow-y-auto p-8">
@@ -450,14 +455,28 @@ function PaymentStatusBlock({
                         </span>
                     )}
                 </div>
-                {!canMark && (
+                {status === 'invoice' ? (
                     <p className="mt-1 text-xs text-[#8B7355]">
-                        Quem marca é quem pagou
-                        {payerName(transaction)
-                            ? ` (${payerName(transaction)})`
+                        Compra no cartão
+                        {transaction.mirrored_from_id && payerName(transaction)
+                            ? ` de ${payerName(transaction)}`
                             : ''}
-                        .
+                        : fica paga quando a fatura for paga.
                     </p>
+                ) : transaction.paid_at && isOnCard(transaction) ? (
+                    <p className="mt-1 text-xs text-[#8B7355]">
+                        A fatura do cartão foi paga.
+                    </p>
+                ) : (
+                    !canMark && (
+                        <p className="mt-1 text-xs text-[#8B7355]">
+                            Quem marca é quem pagou
+                            {payerName(transaction)
+                                ? ` (${payerName(transaction)})`
+                                : ''}
+                            .
+                        </p>
+                    )
                 )}
             </div>
 

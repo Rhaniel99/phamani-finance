@@ -8,6 +8,7 @@ use App\Interfaces\Repositories\ITransactionRepository;
 use App\Interfaces\Services\IBalanceService;
 use App\Interfaces\Services\IRecurringTransactionService;
 use App\Interfaces\Services\ISplitService;
+use App\Interfaces\Services\ITagService;
 use App\Models\RecurringTransaction;
 use App\Models\Transaction;
 use Carbon\CarbonImmutable;
@@ -20,6 +21,7 @@ class RecurringTransactionService implements IRecurringTransactionService
         protected ITransactionRepository $transactions,
         protected IBalanceService $balance,
         protected ISplitService $splits,
+        protected ITagService $tags,
     ) {}
 
     public function createRecurringTransaction(string $userId, StoreTransactionData $dto): RecurringTransaction
@@ -110,6 +112,7 @@ class RecurringTransactionService implements IRecurringTransactionService
 
                 if ($last !== null) {
                     $this->splits->copy($last, $occurrence);
+                    $this->tags->copy($last, $occurrence);
                 }
 
                 $this->balance->applyIfDue($occurrence);

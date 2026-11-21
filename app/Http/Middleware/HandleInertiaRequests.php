@@ -8,6 +8,7 @@ use App\Enums\EnumOptions;
 use App\Enums\RecurringFrequency;
 use App\Interfaces\Services\IContactService;
 use App\Interfaces\Services\IInvitationService;
+use App\Interfaces\Services\ITagService;
 use App\Models\Share;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -44,6 +45,8 @@ class HandleInertiaRequests extends Middleware
             ],
             // Contatos para a divisão de contas (usados no formulário de transação em várias páginas).
             'contacts' => fn () => $user ? app(IContactService::class)->listForUser((string) $user->id) : [],
+            // Tags do usuário: sugestões no formulário, filtro da lista e "Gerenciar tags".
+            'tags' => fn () => $user ? app(ITagService::class)->listForUser((string) $user->id) : [],
             // Sino do cabeçalho. Hoje atualizado por polling (usePoll); com Reverb, um listener do Echo
             // só precisa recarregar esta mesma prop.
             'notifications' => fn () => $user ? [

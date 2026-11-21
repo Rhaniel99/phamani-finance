@@ -302,4 +302,71 @@ class CreditCardTest extends TestCase
                 ->where('selectedInvoice.total', 333.75)
                 ->has('transactions', 1));
     }
+
+    public function test_card_purchases_stay_in_the_invoice_until_it_is_paid(): void
+    {
+        $card = $this->createCard();
+        $this->purchase($card, ['date' => '2026-11-02']);
+        $transaction = Transaction::firstOrFail();
+        $invoice = CreditCardInvoice::firstOrFail();
+
+        // Não nasce paga e não fica "atrasada".
+        $this->assertNull($transaction->paid_at);
+        $this->actingAs($this->user)
+            ->get(route('transactions.index', ['status' => 'overdue']))
+            ->assertInertia(fn (Assert $page) => $page->has('transactions.data', 0));
+        $this->actingAs($this->user)
+            ->get(route('transactions.index', ['status' => 'pending']))
+            ->assertInertia(fn (Assert $page) => $page->has('transactions.data', 1));
+
+        $this->actingAs($this->user)
+            ->post(route('invoices.pay', $invoice), ['account_id' => $this->checking->id, 'date' => '2026-11-18']);
+        $this->assertSame('2026-11-18', $transaction->fresh()->paid_at?->toDateString());
+
+        $this->actingAs($this->user)->delete(route('invoices.undo', $invoice));
+        $this->assertNull($transaction->fresh()->paid_at);
+    }
+
+    public function test_card_purchase_cannot_be_marked_paid_by_hand(): void
+    {
+        $card = $this->createCard();
+        $this->purchase($card);
+        $transaction = Transaction::firstOrFail();
+
+        $this->actingAs($this->user)
+            ->post(route('transactions.pay', $transaction))
+            ->assertSessionHasErrors('paid');
+
+        $this->assertNull($transaction->fresh()->paid_at);
+    }
+
+    public function test_purchase_moved_into_a_paid_invoice_is_paid(): void
+    {
+        $card = $this->createCard();
+        $this->purchase($card, ['description' => 'Primeira']);
+        $invoice = CreditCardInvoice::firstOrFail();
+        $this->actingAs($this->user)
+            ->post(route('invoices.pay', $invoice), ['account_id' => $this->checking->id, 'date' => '2026-11-18']);
+
+        $this->purchase($card, ['description' => 'Segunda', 'date' => '2026-11-10']);
+
+        $this->assertSame('2026-11-18', Transaction::where('name', 'Segunda')->firstOrFail()->paid_at?->toDateString());
+    }
+
+    public function test_purchases_can_be_reconciled_on_the_invoice(): void
+    {
+        $card = $this->createCard();
+        $this->purchase($card);
+        $transaction = Transaction::firstOrFail();
+
+        $this->actingAs($this->user)->post(route('transactions.reconcile', $transaction))->assertRedirect();
+        $this->assertNotNull($transaction->fresh()->reconciled_at);
+
+        $this->actingAs($this->user)->post(route('transactions.reconcile', $transaction));
+        $this->assertNull($transaction->fresh()->reconciled_at);
+
+        $this->actingAs(User::factory()->create())
+            ->post(route('transactions.reconcile', $transaction))
+            ->assertNotFound();
+    }
 }

@@ -90,13 +90,25 @@ class CreditCardService implements ICreditCardService
     {
         $card = $transaction->account_id !== null ? Account::query()->find($transaction->account_id) : null;
 
-        if ($card === null || ! $card->isConfiguredCard()) {
+        if ($card === null || ! $card->isCreditCard()) {
             $transaction->invoice_id = null;
 
             return;
         }
 
-        $transaction->invoice_id = $this->invoiceFor($card, $transaction->date)->id;
+        if (! $card->isConfiguredCard()) {
+            // Cartão sem fechamento/vencimento: sem fatura, fica "na fatura" (não paga).
+            $transaction->invoice_id = null;
+            $transaction->paid_at = null;
+
+            return;
+        }
+
+        $invoice = $this->invoiceFor($card, $transaction->date);
+
+        $transaction->invoice_id = $invoice->id;
+        // Status da compra = status da fatura: paga quando a fatura for paga.
+        $transaction->paid_at = $invoice->paid_at?->toDateString();
     }
 
     public function reassignInvoices(Account $card): void
@@ -253,6 +265,8 @@ class CreditCardService implements ICreditCardService
 
             // Sai dinheiro da conta, mas não é despesa: as compras já foram contadas uma a uma.
             $this->accounts->applyTransaction($fromAccountId, $total, 'expense');
+
+            $this->setPurchasesPaidAt($invoice, $date);
         });
     }
 
@@ -272,7 +286,21 @@ class CreditCardService implements ICreditCardService
                 'paid_amount' => null,
                 'paid_from_account_id' => null,
             ]);
+
+            $this->setPurchasesPaidAt($invoice, null);
         });
+    }
+
+    /**
+     * As compras da fatura (e as cópias delas, nas divisões) acompanham o pagamento da fatura.
+     * Compras no cartão não mexem no saldo, então basta gravar o status.
+     */
+    private function setPurchasesPaidAt(CreditCardInvoice $invoice, ?string $date): void
+    {
+        $ids = Transaction::query()->where('invoice_id', $invoice->id)->pluck('id');
+
+        Transaction::query()->whereIn('id', $ids)->update(['paid_at' => $date]);
+        Transaction::query()->whereIn('mirrored_from_id', $ids)->update(['paid_at' => $date]);
     }
 
     /**

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Interfaces\Services\IBalanceService;
 use App\Interfaces\Services\IPaymentService;
+use App\Models\Account;
 use App\Models\Contact;
 use App\Models\Installment;
 use App\Models\RecurringTransaction;
@@ -22,6 +23,7 @@ class PaymentService implements IPaymentService
     public function markPaid(Transaction $transaction, User $user): void
     {
         $source = $this->sourceOf($transaction);
+        $this->ensureNotOnCard($source);
         $this->ensurePayer($source, $user);
 
         $this->setPaid($source, now()->toDateString());
@@ -30,6 +32,7 @@ class PaymentService implements IPaymentService
     public function markUnpaid(Transaction $transaction, User $user): void
     {
         $source = $this->sourceOf($transaction);
+        $this->ensureNotOnCard($source);
         $this->ensurePayer($source, $user);
 
         $this->setPaid($source, null);
@@ -42,6 +45,8 @@ class PaymentService implements IPaymentService
         Transaction::query()
             ->whereNull('paid_at')
             ->whereNull('mirrored_from_id')
+            // No cartão, quem paga é a fatura.
+            ->notOnCard()
             ->whereDate('date', '<=', now()->toDateString())
             ->where(fn ($q) => $q
                 ->whereIn('recurring_id', RecurringTransaction::query()->select('id')->where('auto_pay', true))
@@ -103,6 +108,15 @@ class PaymentService implements IPaymentService
      * Quem marca é quem pagou: o dono (se ele pagou ou se pagou alguém que não usa o Phamani)
      * ou o usuário vinculado ao contato que pagou.
      */
+    private function ensureNotOnCard(Transaction $source): void
+    {
+        if ($source->account_id !== null && Account::query()->whereKey($source->account_id)->value('type') === 'credit') {
+            throw ValidationException::withMessages([
+                'paid' => 'Compra no cartão fica paga quando a fatura é paga.',
+            ]);
+        }
+    }
+
     private function ensurePayer(Transaction $source, User $user): void
     {
         $payerId = $source->user_id;

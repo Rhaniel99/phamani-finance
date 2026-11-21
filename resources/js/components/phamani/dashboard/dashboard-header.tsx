@@ -1,8 +1,9 @@
 import { Link } from '@inertiajs/react';
-import { ArrowLeft, Inbox, LogOut, Users, Wallet } from 'lucide-react';
+import { ArrowLeft, Hash, Inbox, LogOut, Users, Wallet } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { ContactsModal } from '@/components/phamani/modal/contacts-modal';
+import { TagsModal } from '@/components/phamani/modal/tags-modal';
 import { NotificationsBell } from '@/components/phamani/notifications-bell';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -31,6 +32,7 @@ export function DashboardHeader({
 }: DashboardHeaderProps) {
     const { user, avatarUrl, name, logout } = useAuth();
     const [contactsOpen, setContactsOpen] = useState(false);
+    const [tagsOpen, setTagsOpen] = useState(false);
 
     return (
         <header className="mb-10 flex items-center justify-between gap-4">
@@ -112,6 +114,13 @@ export function DashboardHeader({
                             Contatos
                         </DropdownMenuItem>
                         <DropdownMenuItem
+                            onSelect={() => setTagsOpen(true)}
+                            className="cursor-pointer"
+                        >
+                            <Hash className="mr-2" />
+                            Tags
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
                             onSelect={logout}
                             className="cursor-pointer"
                         >
@@ -122,6 +131,7 @@ export function DashboardHeader({
                 </DropdownMenu>
             </div>
             <ContactsModal open={contactsOpen} onOpenChange={setContactsOpen} />
+            <TagsModal open={tagsOpen} onOpenChange={setTagsOpen} />
         </header>
     );
 }

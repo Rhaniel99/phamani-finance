@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { Form } from '@/components/form';
 import { AccountDropdown } from '@/components/phamani/dropdown/account-dropdown';
 import { CategoryDropdown } from '@/components/phamani/dropdown/category-dropdown';
+import { TagInput } from '@/components/phamani/tag-input';
 import { SplitSection } from '@/components/phamani/modal/split-section';
 import { ToggleField } from '@/components/toggle-field';
 import { useEnums } from '@/hooks/use-enums';
@@ -243,6 +244,20 @@ export function TransactionForm({
                         className={inputClass}
                     />
                     <FieldError message={errors.description} />
+                </div>
+
+                <div>
+                    <span className={labelClass}>Tags</span>
+                    <TagInput
+                        value={data.tags}
+                        onChange={(tags) => setData('tags', tags)}
+                        error={
+                            errors.tags ??
+                            Object.entries(errors).find(([k]) =>
+                                k.startsWith('tags.'),
+                            )?.[1]
+                        }
+                    />
                 </div>
 
                 <div

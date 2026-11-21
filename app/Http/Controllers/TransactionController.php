@@ -31,6 +31,7 @@ class TransactionController extends Controller
         $filters = $request->validate([
             'account_id' => ['nullable', 'uuid'],
             'category_id' => ['nullable', 'uuid'],
+            'tag_id' => ['nullable', 'uuid'],
             'type' => ['nullable', Rule::in(['income', 'expense'])],
             'month' => ['nullable', 'date_format:Y-m'],
             'all' => ['nullable', 'boolean'],
@@ -154,6 +155,20 @@ class TransactionController extends Controller
     /**
      * Responde 404 (e não 403) para não revelar que a transação de outro usuário existe.
      */
+    /**
+     * "Conferido" na lista da fatura (marcar/desmarcar). Não muda valor nem status.
+     */
+    public function reconcile(Request $request, Transaction $transaction): RedirectResponse
+    {
+        $this->ensureOwner($request, $transaction);
+
+        $transaction->forceFill([
+            'reconciled_at' => $transaction->reconciled_at === null ? now() : null,
+        ])->saveQuietly();
+
+        return back();
+    }
+
     private function ensureOwner(Request $request, Transaction $transaction): void
     {
         abort_unless($transaction->user_id === (string) $request->user()?->getAuthIdentifier(), 404);

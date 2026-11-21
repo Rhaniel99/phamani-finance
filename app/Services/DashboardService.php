@@ -211,6 +211,7 @@ class DashboardService implements IDashboardService
             ->where('user_id', $userId)
             ->where('type', 'expense')
             ->whereNull('paid_at')
+            ->notOnCard()
             ->whereDate('date', '<', now()->toDateString());
 
         return [

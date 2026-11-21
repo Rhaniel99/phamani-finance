@@ -15,6 +15,7 @@ import { DashboardHeader } from '@/components/phamani/dashboard/dashboard-header
 import { ShowTransactionDrawer } from '@/components/phamani/drawer/show-transaction-drawer';
 import { NewTransactionModal } from '@/components/phamani/modal/new-transaction-modal';
 import { PaymentStatusBadge } from '@/components/phamani/payment-status-badge';
+import { TagChips } from '@/components/phamani/tag-input';
 import { Button } from '@/components/phamani/ui/button';
 import {
     DropdownMenu,
@@ -23,6 +24,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useTags } from '@/hooks/use-tags';
 import { formatCurrency, formatMonth, today } from '@/lib/format';
 import { canMarkPaid, paymentStatus } from '@/lib/payment';
 import {
@@ -178,6 +180,8 @@ export default function TransactionsIndex({
         });
     }
 
+    const tags = useTags();
+
     function applyFilter<K extends keyof TransactionFilters>(
         key: K,
         value?: TransactionFilters[K],
@@ -218,6 +222,7 @@ export default function TransactionsIndex({
     const hasFilters = !!(
         filters.account_id ||
         filters.category_id ||
+        filters.tag_id ||
         filters.type ||
         filters.search ||
         filters.kind ||
@@ -409,6 +414,21 @@ export default function TransactionsIndex({
                             allLabel="Todas as categorias"
                             onSelect={(v) => applyFilter('category_id', v)}
                         />
+                        {tags.length > 0 && (
+                            <FilterPill
+                                label={
+                                    tags.find((t) => t.id === filters.tag_id)
+                                        ?.name ?? 'Tag'
+                                }
+                                active={!!filters.tag_id}
+                                options={tags.map((t) => ({
+                                    value: t.id,
+                                    label: t.name,
+                                }))}
+                                allLabel="Todas as tags"
+                                onSelect={(v) => applyFilter('tag_id', v)}
+                            />
+                        )}
                         <FilterPill
                             label={
                                 filters.type === 'income'
@@ -659,6 +679,7 @@ function TransactionRow({
                             </Tag>
                         )}
                         {t.recurring && <Tag>Recorrente</Tag>}
+                        <TagChips tags={t.tags} />
                         {t.mirrored_from_id && <Tag>Compartilhada</Tag>}
                         {isThirdParty(t) ? (
                             <>

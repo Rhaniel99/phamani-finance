@@ -55,6 +55,9 @@ class StoreTransactionData extends Data
 
         #[RequiredIf('is_recurring', true)]
         public ?RecurringFrequency $frequency = null,
+
+        /** Tags livres (ex.: "iFood"). Criadas na hora se não existirem. @var list<string> */
+        public array $tags = [],
     ) {}
 
     /**
@@ -75,6 +78,8 @@ class StoreTransactionData extends Data
                 'nullable', 'uuid',
                 Rule::exists('accounts', 'id')->where('user_id', Auth::id()),
             ],
+            'tags' => ['array', 'max:10'],
+            'tags.*' => ['string', 'max:40'],
         ];
     }
 }

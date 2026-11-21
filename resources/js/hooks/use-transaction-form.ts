@@ -32,6 +32,7 @@ function initialData(
         auto_pay: false,
         is_recurring: false,
         frequency: 'monthly',
+        tags: transaction?.tags?.map((t) => t.name) ?? [],
     };
 }
 

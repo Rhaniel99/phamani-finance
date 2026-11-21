@@ -5,6 +5,7 @@ const STYLES: Record<PaymentStatus, string> = {
     paid: 'bg-[#E3F9E5] text-[#1F5428]',
     pending: 'bg-[#E8DCC4] text-[#6B4E3D]',
     overdue: 'bg-[#FCE7E7] text-[#A65D57]',
+    invoice: 'bg-[#EDE7F6] text-[#5B4A86]',
 };
 
 export function paymentStatusLabel(
@@ -13,6 +14,7 @@ export function paymentStatusLabel(
 ): string {
     if (status === 'paid') return isIncome ? 'Recebido' : 'Pago';
     if (status === 'overdue') return 'Atrasado';
+    if (status === 'invoice') return 'Na fatura';
 
     return 'Pendente';
 }

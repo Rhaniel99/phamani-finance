@@ -8,6 +8,7 @@ import type {
     SplitForm,
     TransactionSplit,
 } from './contact';
+import type { Tag } from './tag';
 
 export type TransactionType = 'income' | 'expense';
 
@@ -30,6 +31,7 @@ export interface InstallmentInfo {
 
 export interface Transaction {
     id: string;
+    tags?: Tag[];
     name: string;
     description: string | null;
     /** Sua parte (numa divisão) ou o valor inteiro. */
@@ -44,6 +46,8 @@ export interface Transaction {
     paid_by?: Pick<Contact, 'id' | 'name' | 'linked_user_id'> | null;
     /** Pago/recebido em (null = pendente ou atrasado). */
     paid_at?: string | null;
+    /** "Conferido" na lista da fatura. */
+    reconciled_at?: string | null;
     splits?: TransactionSplit[];
 
     /** Cópia de uma divisão compartilhada por outra pessoa (somente leitura). */
@@ -98,6 +102,8 @@ export interface TransactionFormData {
     auto_pay: boolean;
     is_recurring: boolean;
     frequency: RecurringFrequency;
+    /** Tags livres (nomes). */
+    tags: string[];
 }
 
 export type TransactionKind = 'split' | 'installment' | 'recurring' | 'shared';
@@ -105,6 +111,7 @@ export type TransactionKind = 'split' | 'installment' | 'recurring' | 'shared';
 export interface TransactionFilters {
     account_id?: string;
     category_id?: string;
+    tag_id?: string;
     type?: TransactionType;
     /** YYYY-MM (padrão: mês atual) */
     month?: string;

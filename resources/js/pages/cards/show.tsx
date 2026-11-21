@@ -1,5 +1,13 @@
 import { Head, router } from '@inertiajs/react';
-import { CalendarClock, Pencil, Plus, Undo2 } from 'lucide-react';
+import {
+    CalendarClock,
+    Check,
+    HandCoins,
+    Pencil,
+    Plus,
+    Undo2,
+    Users,
+} from 'lucide-react';
 import { useState } from 'react';
 import { CategoryIcon } from '@/components/phamani/category-icon';
 import { DashboardHeader } from '@/components/phamani/dashboard/dashboard-header';
@@ -8,9 +16,11 @@ import { ShowTransactionDrawer } from '@/components/phamani/drawer/show-transact
 import { NewTransactionModal } from '@/components/phamani/modal/new-transaction-modal';
 import { Button } from '@/components/phamani/ui/button';
 import { formatCurrency, formatDate, formatMonth, today } from '@/lib/format';
+import { isThirdParty, receivableSplits } from '@/lib/split';
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import { show as cardShow } from '@/routes/cards';
+import { reconcile } from '@/routes/transactions';
 import { pay as payInvoice, undo as undoPayment } from '@/routes/invoices';
 import { INVOICE_STATUS_LABELS } from '@/types/phamani';
 import type {
@@ -195,54 +205,10 @@ export default function CardShow({
                             />
                         )}
 
-                        <div className="mt-6 overflow-hidden rounded-3xl border border-[#E8DCC4] bg-white shadow-sm">
-                            {transactions.length === 0 && (
-                                <p className="px-6 py-12 text-center text-[#8B7355]">
-                                    Nenhuma compra nesta fatura.
-                                </p>
-                            )}
-                            <ul className="divide-y divide-[#E8DCC4]">
-                                {transactions.map((t) => (
-                                    <li key={t.id}>
-                                        <button
-                                            type="button"
-                                            onClick={() => setSelected(t)}
-                                            className="flex w-full items-center justify-between gap-4 px-6 py-4 text-left transition-colors hover:bg-[#F5EFE6]"
-                                        >
-                                            <div className="flex min-w-0 items-center gap-3">
-                                                <CategoryIcon
-                                                    category={t.category}
-                                                    className="h-10 w-10 shrink-0 rounded-xl"
-                                                    iconClassName="h-5 w-5"
-                                                />
-                                                <div className="min-w-0">
-                                                    <p className="truncate font-bold text-[#3D2817]">
-                                                        {t.name}
-                                                    </p>
-                                                    <p className="text-xs text-[#8B7355]">
-                                                        {formatDate(t.date)} ·{' '}
-                                                        {t.category?.name}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <span
-                                                className={cn(
-                                                    'shrink-0 text-sm font-bold',
-                                                    t.type === 'income'
-                                                        ? 'text-[#1F5428]'
-                                                        : 'text-[#3D2817]',
-                                                )}
-                                            >
-                                                {t.type === 'income'
-                                                    ? '+'
-                                                    : '-'}{' '}
-                                                {formatCurrency(t.amount)}
-                                            </span>
-                                        </button>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
+                        <InvoicePurchases
+                            transactions={transactions}
+                            onOpen={setSelected}
+                        />
                     </>
                 )}
 
@@ -477,6 +443,177 @@ function InvoicePanel({
                     </p>
                 )}
             </div>
+        </div>
+    );
+}
+
+/** Valor que entrou na fatura (numa divisão, o valor cheio; a sua parte vem embaixo). */
+function chargedAmount(t: Transaction): number {
+    return Number(t.total_amount ?? t.amount);
+}
+
+/**
+ * Compras da fatura, com "conferido" (para bater com a fatura do banco)
+ * e um aviso discreto quando a compra é dividida ou de outra pessoa.
+ */
+function InvoicePurchases({
+    transactions,
+    onOpen,
+}: {
+    transactions: Transaction[];
+    onOpen: (t: Transaction) => void;
+}) {
+    const [busy, setBusy] = useState<string | null>(null);
+
+    const checked = transactions.filter((t) => !!t.reconciled_at);
+    const checkedTotal = checked.reduce((sum, t) => sum + chargedAmount(t), 0);
+    const total = transactions.reduce((sum, t) => sum + chargedAmount(t), 0);
+
+    function toggle(t: Transaction) {
+        router.post(
+            reconcile.url(t.id),
+            {},
+            {
+                preserveScroll: true,
+                preserveState: true,
+                only: ['transactions'],
+                onStart: () => setBusy(t.id),
+                onFinish: () => setBusy(null),
+            },
+        );
+    }
+
+    return (
+        <div className="mt-6 overflow-hidden rounded-3xl border border-[#E8DCC4] bg-white shadow-sm">
+            {transactions.length === 0 ? (
+                <p className="px-6 py-12 text-center text-[#8B7355]">
+                    Nenhuma compra nesta fatura.
+                </p>
+            ) : (
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E8DCC4] bg-[#FBF7F1] px-6 py-3 text-xs text-[#6B4E3D]">
+                    <span>
+                        <strong className="text-[#3D2817]">
+                            {checked.length} de {transactions.length}
+                        </strong>{' '}
+                        conferidas
+                    </span>
+                    <span>
+                        {formatCurrency(checkedTotal)} de{' '}
+                        {formatCurrency(total)}
+                    </span>
+                </div>
+            )}
+
+            <ul className="divide-y divide-[#E8DCC4]">
+                {transactions.map((t) => {
+                    const isChecked = !!t.reconciled_at;
+                    const forOthers = isThirdParty(t);
+                    const split = !forOthers && t.total_amount != null;
+
+                    return (
+                        <li
+                            key={t.id}
+                            className={cn(
+                                'flex items-center gap-1 pl-3 transition-colors',
+                                isChecked && 'bg-[#F7FBF7]',
+                            )}
+                        >
+                            <button
+                                type="button"
+                                role="checkbox"
+                                aria-checked={isChecked}
+                                aria-label={
+                                    isChecked
+                                        ? `Desmarcar ${t.name} como conferida`
+                                        : `Marcar ${t.name} como conferida`
+                                }
+                                title={isChecked ? 'Conferida' : 'Conferir'}
+                                disabled={busy === t.id}
+                                onClick={() => toggle(t)}
+                                className={cn(
+                                    'flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 transition-colors disabled:opacity-50',
+                                    isChecked
+                                        ? 'border-[#1F5428] bg-[#1F5428] text-white'
+                                        : 'border-[#D4C5A9] bg-white hover:border-[#6B4E3D]',
+                                )}
+                            >
+                                {isChecked && <Check className="h-4 w-4" />}
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => onOpen(t)}
+                                className="flex min-w-0 flex-1 items-center justify-between gap-4 py-4 pr-6 pl-2 text-left hover:bg-[#F5EFE6]/60"
+                            >
+                                <div className="flex min-w-0 items-center gap-3">
+                                    <CategoryIcon
+                                        category={t.category}
+                                        className="h-10 w-10 shrink-0 rounded-xl"
+                                        iconClassName="h-5 w-5"
+                                    />
+                                    <div className="min-w-0">
+                                        <p
+                                            className={cn(
+                                                'truncate font-bold',
+                                                isChecked
+                                                    ? 'text-[#6B4E3D]'
+                                                    : 'text-[#3D2817]',
+                                            )}
+                                        >
+                                            {t.name}
+                                        </p>
+                                        <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-[#8B7355]">
+                                            <span>
+                                                {formatDate(t.date)} ·{' '}
+                                                {t.category?.name}
+                                            </span>
+                                            {split && (
+                                                <span
+                                                    className="inline-flex items-center gap-1 text-[#6B4E3D]"
+                                                    title="Compra dividida: o valor ao lado é o cheio (o da fatura)"
+                                                >
+                                                    ·
+                                                    <Users className="h-3 w-3" />
+                                                    sua parte{' '}
+                                                    {formatCurrency(t.amount)}
+                                                </span>
+                                            )}
+                                            {forOthers && (
+                                                <span
+                                                    className="inline-flex items-center gap-1 text-[#A65D57]"
+                                                    title="Compra para outra pessoa: não entra nas suas despesas"
+                                                >
+                                                    ·
+                                                    <HandCoins className="h-3 w-3" />
+                                                    para{' '}
+                                                    {receivableSplits(t)
+                                                        .map(
+                                                            (x) =>
+                                                                x.contact?.name,
+                                                        )
+                                                        .filter(Boolean)
+                                                        .join(', ')}
+                                                </span>
+                                            )}
+                                        </p>
+                                    </div>
+                                </div>
+                                <span
+                                    className={cn(
+                                        'shrink-0 text-sm font-bold',
+                                        t.type === 'income'
+                                            ? 'text-[#1F5428]'
+                                            : 'text-[#3D2817]',
+                                    )}
+                                >
+                                    {t.type === 'income' ? '+' : '-'}{' '}
+                                    {formatCurrency(chargedAmount(t))}
+                                </span>
+                            </button>
+                        </li>
+                    );
+                })}
+            </ul>
         </div>
     );
 }

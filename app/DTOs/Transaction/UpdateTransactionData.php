@@ -39,6 +39,9 @@ class UpdateTransactionData extends Data
 
         /** Divisão com contatos (null = sem divisão). */
         public ?SplitData $split = null,
+
+        /** Tags livres. Null = não mexe nas tags. @var list<string>|null */
+        public ?array $tags = null,
     ) {}
 
     /**
@@ -59,6 +62,8 @@ class UpdateTransactionData extends Data
                 'nullable', 'uuid',
                 Rule::exists('accounts', 'id')->where('user_id', Auth::id()),
             ],
+            'tags' => ['nullable', 'array', 'max:10'],
+            'tags.*' => ['string', 'max:40'],
         ];
     }
 }

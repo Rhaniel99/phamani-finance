@@ -36,6 +36,7 @@ class TransactionRepository extends CoreRepository implements ITransactionReposi
                 'splits:id,transaction_id,contact_id,amount,reimbursed_at,reimbursement_account_id,reimbursed_amount',
                 'splits.contact:id,name',
                 'splits.reimbursementAccount:id,name',
+                'tags:id,name',
                 'paidBy:id,name,linked_user_id',
             ])
             ->orderByDesc('created_at')
@@ -52,7 +53,7 @@ class TransactionRepository extends CoreRepository implements ITransactionReposi
     /**
      * Filtros da tela de transações, compartilhados pela lista e pelo resumo do mês.
      *
-     * @param  array{account_id?: ?string, category_id?: ?string, type?: ?string, month?: ?string, search?: ?string, kind?: ?string}  $filters
+     * @param  array{account_id?: ?string, category_id?: ?string, tag_id?: ?string, type?: ?string, month?: ?string, search?: ?string, kind?: ?string}  $filters
      */
     private function filtered(string $userId, array $filters): Builder
     {
@@ -60,6 +61,7 @@ class TransactionRepository extends CoreRepository implements ITransactionReposi
             ->where('user_id', $userId)
             ->when($filters['account_id'] ?? null, fn ($q, $id) => $q->where('account_id', $id))
             ->when($filters['category_id'] ?? null, fn ($q, $id) => $q->where('category_id', $id))
+            ->when($filters['tag_id'] ?? null, fn ($q, $id) => $q->whereHas('tags', fn ($t) => $t->whereKey($id)))
             ->when($filters['type'] ?? null, fn ($q, $type) => $q->where('type', $type))
             ->when($filters['month'] ?? null, function ($q, string $month) {
                 $start = CarbonImmutable::createFromFormat('!Y-m', $month);
@@ -80,8 +82,12 @@ class TransactionRepository extends CoreRepository implements ITransactionReposi
 
                 match ($status) {
                     'paid' => $q->whereNotNull('paid_at'),
-                    'pending' => $q->whereNull('paid_at')->whereDate('date', '>=', $today),
-                    'overdue' => $q->whereNull('paid_at')->whereDate('date', '<', $today),
+                    // Pendente: ainda não chegou, ou está numa fatura que não foi paga.
+                    'pending' => $q->whereNull('paid_at')->where(fn ($w) => $w
+                        ->whereDate('date', '>=', $today)
+                        ->orWhere(fn ($c) => $c->onCard())),
+                    // Compra no cartão não fica atrasada: quem vence é a fatura.
+                    'overdue' => $q->whereNull('paid_at')->whereDate('date', '<', $today)->notOnCard(),
                     default => null,
                 };
             })
@@ -103,7 +109,8 @@ class TransactionRepository extends CoreRepository implements ITransactionReposi
         // Não pagas (cartão fica de fora: a dívida está na fatura).
         $unpaid = fn () => $this->filtered($userId, $filters)
             ->where('type', 'expense')
-            ->whereNull('paid_at');
+            ->whereNull('paid_at')
+            ->notOnCard();
 
         $due = $unpaid()->whereDate('date', '>=', $today);
         $overdue = $unpaid()->whereDate('date', '<', $today);
@@ -129,8 +136,10 @@ class TransactionRepository extends CoreRepository implements ITransactionReposi
                 'splits:id,transaction_id,contact_id,amount,reimbursed_at,reimbursement_account_id,reimbursed_amount',
                 'splits.contact:id,name',
                 'splits.reimbursementAccount:id,name',
+                'tags:id,name',
                 'paidBy:id,name,linked_user_id',
-                'mirroredFrom:id,user_id,total_amount,paid_by_contact_id',
+                'mirroredFrom:id,user_id,account_id,total_amount,paid_by_contact_id',
+                'mirroredFrom.account:id,type',
                 'mirroredFrom.user:id,name,avatar',
                 'mirroredFrom.paidBy:id,name,linked_user_id',
                 'mirroredFrom.splits:id,transaction_id,contact_id,amount',
