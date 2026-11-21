@@ -82,8 +82,12 @@ class TransactionRepository extends CoreRepository implements ITransactionReposi
 
                 match ($status) {
                     'paid' => $q->whereNotNull('paid_at'),
-                    'pending' => $q->whereNull('paid_at')->whereDate('date', '>=', $today),
-                    'overdue' => $q->whereNull('paid_at')->whereDate('date', '<', $today),
+                    // Pendente: ainda não chegou, ou está numa fatura que não foi paga.
+                    'pending' => $q->whereNull('paid_at')->where(fn ($w) => $w
+                        ->whereDate('date', '>=', $today)
+                        ->orWhere(fn ($c) => $c->onCard())),
+                    // Compra no cartão não fica atrasada: quem vence é a fatura.
+                    'overdue' => $q->whereNull('paid_at')->whereDate('date', '<', $today)->notOnCard(),
                     default => null,
                 };
             })
@@ -105,7 +109,8 @@ class TransactionRepository extends CoreRepository implements ITransactionReposi
         // Não pagas (cartão fica de fora: a dívida está na fatura).
         $unpaid = fn () => $this->filtered($userId, $filters)
             ->where('type', 'expense')
-            ->whereNull('paid_at');
+            ->whereNull('paid_at')
+            ->notOnCard();
 
         $due = $unpaid()->whereDate('date', '>=', $today);
         $overdue = $unpaid()->whereDate('date', '<', $today);
@@ -133,7 +138,8 @@ class TransactionRepository extends CoreRepository implements ITransactionReposi
                 'splits.reimbursementAccount:id,name',
                 'tags:id,name',
                 'paidBy:id,name,linked_user_id',
-                'mirroredFrom:id,user_id,total_amount,paid_by_contact_id',
+                'mirroredFrom:id,user_id,account_id,total_amount,paid_by_contact_id',
+                'mirroredFrom.account:id,type',
                 'mirroredFrom.user:id,name,avatar',
                 'mirroredFrom.paidBy:id,name,linked_user_id',
                 'mirroredFrom.splits:id,transaction_id,contact_id,amount',

@@ -57,6 +57,9 @@ export type ShareStatus =
 export interface MirrorSource {
     id: string;
     user_id: string;
+    account_id?: string | null;
+    /** Só o tipo: diz se a original está num cartão (status "na fatura"). */
+    account?: { id: string; type: string } | null;
     total_amount: string | number | null;
     paid_by_contact_id: string | null;
     user?: { id: string; name: string; avatar?: string | null } | null;

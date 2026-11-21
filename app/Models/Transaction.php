@@ -4,12 +4,14 @@ namespace App\Models;
 
 use App\Observers\TransactionObserver;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
+ * @property \Carbon\CarbonInterface|null $reconciled_at
  * @property string $id
  * @property string $user_id
  * @property string|null $account_id
@@ -50,6 +52,7 @@ class Transaction extends BaseModel
         'amount',
         'date',
         'balance_applied',
+        'reconciled_at',
     ];
 
     protected $casts = [
@@ -59,7 +62,39 @@ class Transaction extends BaseModel
         'balance_applied' => 'boolean',
         'paid_at' => 'date:Y-m-d',
         'total_amount' => 'decimal:2',
+        'reconciled_at' => 'datetime',
     ];
+
+    /**
+     * Fora do cartão: nem compra num cartão de crédito, nem cópia de uma.
+     * (Compras no cartão não ficam "atrasadas": a dívida está na fatura.)
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeNotOnCard(Builder $query): void
+    {
+        $credit = Account::query()->select('id')->where('type', 'credit');
+
+        $query
+            ->where(fn (Builder $q) => $q->whereNull('account_id')->orWhereNotIn('account_id', $credit))
+            ->where(fn (Builder $q) => $q
+                ->whereNull('mirrored_from_id')
+                ->orWhereNotIn('mirrored_from_id', self::query()->select('id')->whereIn('account_id', $credit)));
+    }
+
+    /**
+     * No cartão (a compra ou a original de uma cópia).
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeOnCard(Builder $query): void
+    {
+        $credit = Account::query()->select('id')->where('type', 'credit');
+
+        $query->where(fn (Builder $q) => $q
+            ->whereIn('account_id', $credit)
+            ->orWhereIn('mirrored_from_id', self::query()->select('id')->whereIn('account_id', $credit)));
+    }
 
     /** @return BelongsTo<Account, $this> */
     public function account(): BelongsTo

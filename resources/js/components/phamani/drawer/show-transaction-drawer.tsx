@@ -14,7 +14,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useState } from 'react';
 import { SplitDetails } from '@/components/phamani/drawer/split-details';
 import { PaymentStatusBadge } from '@/components/phamani/payment-status-badge';
-import { canMarkPaid, payerName, paymentStatus } from '@/lib/payment';
+import { canMarkPaid, isOnCard, payerName, paymentStatus } from '@/lib/payment';
 import { InstallmentModal } from '@/components/phamani/modal/installment-modal';
 import { useEnums } from '@/hooks/use-enums';
 import { resolveEnumLabel } from '@/lib/enum-helpers';
@@ -455,14 +455,28 @@ function PaymentStatusBlock({
                         </span>
                     )}
                 </div>
-                {!canMark && (
+                {status === 'invoice' ? (
                     <p className="mt-1 text-xs text-[#8B7355]">
-                        Quem marca é quem pagou
-                        {payerName(transaction)
-                            ? ` (${payerName(transaction)})`
+                        Compra no cartão
+                        {transaction.mirrored_from_id && payerName(transaction)
+                            ? ` de ${payerName(transaction)}`
                             : ''}
-                        .
+                        : fica paga quando a fatura for paga.
                     </p>
+                ) : transaction.paid_at && isOnCard(transaction) ? (
+                    <p className="mt-1 text-xs text-[#8B7355]">
+                        A fatura do cartão foi paga.
+                    </p>
+                ) : (
+                    !canMark && (
+                        <p className="mt-1 text-xs text-[#8B7355]">
+                            Quem marca é quem pagou
+                            {payerName(transaction)
+                                ? ` (${payerName(transaction)})`
+                                : ''}
+                            .
+                        </p>
+                    )
                 )}
             </div>
 

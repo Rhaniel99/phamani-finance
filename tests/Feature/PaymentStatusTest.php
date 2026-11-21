@@ -70,7 +70,7 @@ class PaymentStatusTest extends TestCase
         return (float) $this->account->fresh()->balance;
     }
 
-    public function test_initial_status_follows_the_date_and_cards_are_always_paid(): void
+    public function test_initial_status_follows_the_date_and_cards_wait_for_the_invoice(): void
     {
         $this->store(['description' => 'Hoje']);
         $this->store(['description' => 'Futuro', 'date' => '2026-12-10']);
@@ -83,7 +83,8 @@ class PaymentStatusTest extends TestCase
 
         $this->assertSame('2026-11-18', Transaction::where('name', 'Hoje')->firstOrFail()->paid_at->toDateString());
         $this->assertNull(Transaction::where('name', 'Futuro')->firstOrFail()->paid_at);
-        $this->assertNotNull(Transaction::where('name', 'Cartão')->firstOrFail()->paid_at);
+        // No cartão: "na fatura" até a fatura ser paga.
+        $this->assertNull(Transaction::where('name', 'Cartão')->firstOrFail()->paid_at);
         $this->assertEquals(900.0, $this->balance()); // só "Hoje"
     }
 

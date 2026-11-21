@@ -46,6 +46,8 @@ export interface Transaction {
     paid_by?: Pick<Contact, 'id' | 'name' | 'linked_user_id'> | null;
     /** Pago/recebido em (null = pendente ou atrasado). */
     paid_at?: string | null;
+    /** "Conferido" na lista da fatura. */
+    reconciled_at?: string | null;
     splits?: TransactionSplit[];
 
     /** Cópia de uma divisão compartilhada por outra pessoa (somente leitura). */
