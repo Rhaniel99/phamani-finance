@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $user_id
  * @property string $name
  * @property string|null $linked_user_id
+ * @property bool $track_debts Cobrar essa pessoa no acerto do mês.
  */
 class Contact extends BaseModel
 {
@@ -19,6 +20,11 @@ class Contact extends BaseModel
         'user_id',
         'name',
         'linked_user_id',
+        'track_debts',
+    ];
+
+    protected $casts = [
+        'track_debts' => 'boolean',
     ];
 
     /** @return BelongsTo<User, $this> */

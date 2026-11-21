@@ -453,6 +453,42 @@ function chargedAmount(t: Transaction): number {
 }
 
 /**
+ * Quanto da fatura é de cada pessoa (as partes das divisões; o resto é seu).
+ * É a conta que se faz para saber quanto cada um precisa passar no acerto.
+ */
+function byPerson(
+    transactions: Transaction[],
+): Array<{ key: string; name: string; amount: number }> {
+    const totals = new Map<string, { name: string; amount: number }>();
+    const add = (key: string, name: string, value: number) => {
+        const current = totals.get(key) ?? { name, amount: 0 };
+        totals.set(key, { name, amount: current.amount + value });
+    };
+
+    for (const t of transactions) {
+        const sign = t.type === 'income' ? -1 : 1;
+        if (t.splits && t.splits.length > 0 && t.total_amount != null) {
+            for (const s of t.splits) {
+                add(
+                    s.contact_id ?? 'me',
+                    s.contact_id ? (s.contact?.name ?? '—') : 'Você',
+                    sign * Number(s.amount),
+                );
+            }
+        } else {
+            add('me', 'Você', sign * chargedAmount(t));
+        }
+    }
+
+    return [...totals.entries()]
+        .map(([key, v]) => ({ key, ...v }))
+        .filter((p) => Math.abs(p.amount) >= 0.01)
+        .sort((a, b) =>
+            a.key === 'me' ? -1 : b.key === 'me' ? 1 : b.amount - a.amount,
+        );
+}
+
+/**
  * Compras da fatura, com "conferido" (para bater com a fatura do banco)
  * e um aviso discreto quando a compra é dividida ou de outra pessoa.
  */
@@ -468,6 +504,7 @@ function InvoicePurchases({
     const checked = transactions.filter((t) => !!t.reconciled_at);
     const checkedTotal = checked.reduce((sum, t) => sum + chargedAmount(t), 0);
     const total = transactions.reduce((sum, t) => sum + chargedAmount(t), 0);
+    const people = byPerson(transactions);
 
     function toggle(t: Transaction) {
         router.post(
@@ -501,6 +538,21 @@ function InvoicePurchases({
                         {formatCurrency(checkedTotal)} de{' '}
                         {formatCurrency(total)}
                     </span>
+                </div>
+            )}
+            {people.length > 1 && (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-[#E8DCC4] px-6 py-3 text-xs text-[#6B4E3D]">
+                    <span className="flex items-center gap-1 font-bold tracking-wide text-[#8B7355] uppercase">
+                        <Users className="h-3.5 w-3.5" /> Por pessoa
+                    </span>
+                    {people.map((p) => (
+                        <span key={p.key}>
+                            {p.name}{' '}
+                            <strong className="text-[#3D2817]">
+                                {formatCurrency(p.amount)}
+                            </strong>
+                        </span>
+                    ))}
                 </div>
             )}
 

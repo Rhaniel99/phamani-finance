@@ -3,6 +3,7 @@ import { HandCoins, Users } from 'lucide-react';
 import { ContactAvatar } from '@/components/phamani/contact-avatar';
 import { useContactAvatar } from '@/hooks/use-contacts';
 import { formatCurrency, formatDate } from '@/lib/format';
+import { acertoLabel } from '@/lib/acerto';
 import { isThirdParty } from '@/lib/split';
 import { cn } from '@/lib/utils';
 import { undo as undoReimbursement } from '@/routes/receivables';
@@ -149,10 +150,23 @@ export function SplitDetails({ transaction }: { transaction: Transaction }) {
                             <span className="font-bold text-[#3D2817]">
                                 {formatCurrency(s.amount)}
                             </span>
-                            {forOthers && (
-                                <ReimbursementStatus
-                                    split={s as TransactionSplit}
-                                    onUndo={() => undo(s.id)}
+                            {!isMirror &&
+                                s.contact_id !== null &&
+                                (forOthers || s.tracked) && (
+                                    <ReimbursementStatus
+                                        split={s as TransactionSplit}
+                                        onUndo={() => undo(s.id)}
+                                    />
+                                )}
+                            {isMirror && s.tracked && labelOf(s) === 'Você' && (
+                                <MyPartStatus
+                                    part={s}
+                                    owner={ownerName}
+                                    month={(
+                                        source?.invoice?.due_date ??
+                                        source?.date ??
+                                        transaction.date
+                                    ).slice(0, 7)}
                                 />
                             )}
                         </li>
@@ -169,7 +183,44 @@ export function SplitDetails({ transaction }: { transaction: Transaction }) {
     );
 }
 
-/** "A receber" ou "Recebido em … na conta …" (com opção de desfazer). */
+/** Na cópia de quem deve: a situação da sua parte no acerto. */
+function MyPartStatus({
+    part,
+    owner,
+    month,
+}: {
+    part: {
+        reimbursed_at?: string | null;
+        settlement?: { status: string } | null;
+    };
+    owner: string;
+    month: string;
+}) {
+    if (part.reimbursed_at) {
+        return (
+            <p className="w-full text-xs text-[#1F5428]">
+                Sua parte foi paga em {formatDate(part.reimbursed_at)}.
+            </p>
+        );
+    }
+
+    if (part.settlement?.status === 'pending') {
+        return (
+            <p className="w-full text-xs text-[#8A6100]">
+                Você informou o pagamento · aguardando {owner} confirmar.
+            </p>
+        );
+    }
+
+    return (
+        <p className="w-full text-xs text-[#A65D57]">
+            A pagar no {acertoLabel(month).toLowerCase()} · pague pelo card “A
+            pagar” no início.
+        </p>
+    );
+}
+
+/** "A receber", "Pagamento informado" ou "Recebido em … na conta …" (com opção de desfazer). */
 function ReimbursementStatus({
     split,
     onUndo,
@@ -177,11 +228,19 @@ function ReimbursementStatus({
     split: TransactionSplit;
     onUndo: () => void;
 }) {
+    if (!split.reimbursed_at && split.settlement?.status === 'pending') {
+        return (
+            <p className="w-full text-xs text-[#8A6100]">
+                Pagamento informado · confirme no card “A receber” no início.
+            </p>
+        );
+    }
+
     if (!split.reimbursed_at) {
         return (
             <p className="w-full text-xs text-[#A65D57]">
-                A receber · registre quando o dinheiro chegar (card “A receber”
-                no início).
+                A receber no acerto · registre quando o dinheiro chegar (card “A
+                receber” no início).
             </p>
         );
     }

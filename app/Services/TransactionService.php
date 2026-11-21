@@ -84,7 +84,7 @@ class TransactionService implements ITransactionService
                 'date' => $dto->date,
             ]);
 
-            $this->splits->sync($transaction, $parts['shares']);
+            $this->splits->sync($transaction, $parts['shares'], $parts['tracked']);
 
             // Data futura: fica "agendada" e só entra no saldo quando a data chegar.
             $this->balance->applyIfDue($transaction);
@@ -125,7 +125,7 @@ class TransactionService implements ITransactionService
             ]);
 
             $transaction->refresh();
-            $this->splits->sync($transaction, $parts['shares']);
+            $this->splits->sync($transaction, $parts['shares'], $parts['tracked']);
             $this->balance->applyIfDue($transaction);
 
             $following = [];

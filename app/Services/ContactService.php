@@ -26,7 +26,7 @@ class ContactService implements IContactService
             ->with('linkedUser:id,name,email,avatar')
             ->where('user_id', $userId)
             ->orderBy('name')
-            ->get(['id', 'name', 'linked_user_id']);
+            ->get(['id', 'name', 'linked_user_id', 'track_debts']);
 
         // E-mail do convite pendente de cada contato (para mostrar "convite enviado").
         $pending = ContactInvitation::query()
@@ -48,7 +48,10 @@ class ContactService implements IContactService
 
     public function rename(Contact $contact, UpdateContactData $dto): Contact
     {
-        $contact->update(['name' => trim($dto->name)]);
+        $contact->update([
+            'name' => trim($dto->name),
+            ...($dto->track_debts === null ? [] : ['track_debts' => $dto->track_debts]),
+        ]);
 
         return $contact;
     }

@@ -108,7 +108,9 @@ class ReceivableTest extends TestCase
         $open = app(IReimbursementService::class)->openForUser($this->user->id);
         $this->assertCount(1, $open);
         $this->assertSame('Irmão', $open[0]['contact']['name']);
-        $this->assertEquals(300.0, $open[0]['due_total']);
+        // Cartão fecha dia 25 e vence dia 5: a compra de 18/11 cai no acerto de dezembro (o da vez).
+        $this->assertSame('2026-12', $open[0]['items'][0]['month']);
+        $this->assertEquals(300.0, $open[0]['current_total']);
     }
 
     public function test_receiving_raises_the_account_balance_without_counting_as_income(): void
@@ -233,7 +235,7 @@ class ReceivableTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_installments_for_someone_else_list_future_parcels_as_upcoming(): void
+    public function test_installments_for_someone_else_fall_in_each_invoice_month(): void
     {
         $this->storeForBrother([
             'description' => 'Celular do irmão',
@@ -245,7 +247,7 @@ class ReceivableTest extends TestCase
         $open = app(IReimbursementService::class)->openForUser($this->user->id);
 
         $this->assertCount(3, $open[0]['items']);
-        $this->assertSame(1, $open[0]['due_count']);
-        $this->assertEquals(100.0, $open[0]['due_total']);
+        $this->assertSame(['current', 'upcoming', 'upcoming'], array_column($open[0]['items'], 'group'));
+        $this->assertEquals(100.0, $open[0]['current_total']);
     }
 }

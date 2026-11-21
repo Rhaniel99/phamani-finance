@@ -6,6 +6,7 @@ use App\DTOs\Transaction\SplitData;
 use App\DTOs\Transaction\SplitParticipantData;
 use App\Interfaces\Services\IShareService;
 use App\Interfaces\Services\ISplitService;
+use App\Models\Contact;
 use App\Models\Transaction;
 use App\Models\TransactionSplit;
 use Illuminate\Validation\ValidationException;
@@ -63,7 +64,7 @@ class SplitService implements ISplitService
     public function compute(float $total, ?SplitData $split): array
     {
         if ($split === null || $split->contactIds() === []) {
-            return ['amount' => round($total, 2), 'total_amount' => null, 'paid_by_contact_id' => null, 'shares' => []];
+            return ['amount' => round($total, 2), 'total_amount' => null, 'paid_by_contact_id' => null, 'shares' => [], 'tracked' => []];
         }
 
         // Pesos: iguais (1 para cada) ou proporcionais aos valores informados.
@@ -98,16 +99,45 @@ class SplitService implements ISplitService
             'total_amount' => round($total, 2),
             'paid_by_contact_id' => $split->paid_by_contact_id,
             'shares' => $shares,
+            'tracked' => $this->trackedContacts($split),
         ];
     }
 
-    public function sync(Transaction $transaction, array $shares): void
+    /**
+     * Contatos cujas partes entram no acerto: só quando você pagou.
+     * Compra para outra pessoa: sempre. Divisão comum: se "cobrar" estiver ligado na divisão
+     * e no contato (Contatos → "Cobrar no acerto").
+     *
+     * @return list<string>
+     */
+    private function trackedContacts(SplitData $split): array
+    {
+        if ($split->paid_by_contact_id !== null) {
+            return [];
+        }
+
+        if (! $split->include_me) {
+            return $split->contactIds();
+        }
+
+        if (! $split->track) {
+            return [];
+        }
+
+        return Contact::query()
+            ->whereIn('id', $split->contactIds())
+            ->where('track_debts', true)
+            ->pluck('id')
+            ->all();
+    }
+
+    public function sync(Transaction $transaction, array $shares, array $tracked = []): void
     {
         $existing = TransactionSplit::query()->where('transaction_id', $transaction->id)->get();
 
-        // Reembolsos já registrados ("recebido") continuam valendo para quem segue na divisão.
+        // Recebimentos e pagamentos do acerto já registrados continuam valendo para quem segue na divisão.
         $reimbursed = $existing
-            ->filter(fn (TransactionSplit $s) => $s->contact_id !== null && $s->reimbursed_at !== null)
+            ->filter(fn (TransactionSplit $s) => $s->contact_id !== null && ($s->reimbursed_at !== null || $s->settlement_id !== null))
             ->keyBy('contact_id');
 
         TransactionSplit::query()->where('transaction_id', $transaction->id)->delete();
@@ -122,6 +152,9 @@ class SplitService implements ISplitService
                 'reimbursed_at' => $previous?->reimbursed_at?->toDateString(),
                 'reimbursement_account_id' => $previous?->reimbursement_account_id,
                 'reimbursed_amount' => $previous?->reimbursed_amount,
+                'settlement_id' => $previous?->settlement_id,
+                // Já acertada continua no acerto, mesmo que a cobrança seja desligada depois.
+                'tracked' => $key !== self::ME && (in_array($key, $tracked, true) || $previous !== null),
             ]);
         }
 
@@ -132,12 +165,16 @@ class SplitService implements ISplitService
     public function copy(Transaction $from, Transaction $to): void
     {
         $shares = [];
+        $tracked = [];
 
         foreach (TransactionSplit::query()->where('transaction_id', $from->id)->get() as $split) {
             $shares[$split->contact_id ?? self::ME] = (float) $split->amount;
+            if ($split->tracked && $split->contact_id !== null) {
+                $tracked[] = $split->contact_id;
+            }
         }
 
-        $this->sync($to, $shares);
+        $this->sync($to, $shares, $tracked);
     }
 
     /**

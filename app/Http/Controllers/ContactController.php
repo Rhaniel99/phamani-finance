@@ -32,7 +32,9 @@ class ContactController extends Controller
 
         $this->service->rename($contact, $data);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Contato renomeado.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => $contact->wasChanged('track_debts') && ! $contact->wasChanged('name')
+            ? ($contact->track_debts ? "{$contact->name} entra no acerto." : "{$contact->name} não é mais cobrado no acerto.")
+            : 'Contato atualizado.']);
 
         return back();
     }

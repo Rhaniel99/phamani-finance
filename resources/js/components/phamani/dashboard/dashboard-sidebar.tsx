@@ -13,12 +13,18 @@ import { formatCurrency, formatDate, today } from '@/lib/format';
 import { paymentStatus } from '@/lib/payment';
 import { displayAmount, isFullyReimbursed, isThirdParty } from '@/lib/split';
 import { index as transactionsIndex } from '@/routes/transactions';
-import type { Account, Receivable, Transaction } from '@/types/phamani';
+import type {
+    Account,
+    Payable,
+    Receivable,
+    Transaction,
+} from '@/types/phamani';
 
 interface DashboardSidebarProps {
     recentTransactions: Transaction[];
     accounts: Account[];
     receivables: Receivable[];
+    payables: Payable[];
     onNewTransaction: () => void;
 }
 
@@ -26,6 +32,7 @@ export function DashboardSidebar({
     recentTransactions,
     accounts,
     receivables,
+    payables,
     onNewTransaction,
 }: DashboardSidebarProps) {
     const [accountsModalOpen, setAccountsModalOpen] = useState(false);
@@ -111,7 +118,11 @@ export function DashboardSidebar({
                 </div>
             </div>
 
-            <ReceivablesCard receivables={receivables} accounts={accounts} />
+            <ReceivablesCard
+                receivables={receivables}
+                payables={payables}
+                accounts={accounts}
+            />
 
             <AccountsList
                 accounts={accounts}

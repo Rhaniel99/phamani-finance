@@ -12,6 +12,7 @@ import type {
     CategoryPiePoint,
     DashboardPeriod,
     Kpis,
+    Payable,
     Receivable,
     Transaction,
 } from '@/types/phamani';
@@ -24,6 +25,7 @@ interface DashboardProps {
     recentTransactions: Transaction[];
     accounts: Account[];
     receivables: Receivable[];
+    payables: Payable[];
     categories: Category[];
 }
 
@@ -35,6 +37,7 @@ export default function Dashboard({
     recentTransactions,
     accounts,
     receivables,
+    payables,
     categories,
 }: DashboardProps) {
     const [isNewTransactionOpen, setIsNewTransactionOpen] = useState(false);
@@ -63,6 +66,7 @@ export default function Dashboard({
                             recentTransactions={recentTransactions}
                             accounts={accounts}
                             receivables={receivables}
+                            payables={payables}
                             onNewTransaction={() =>
                                 setIsNewTransactionOpen(true)
                             }

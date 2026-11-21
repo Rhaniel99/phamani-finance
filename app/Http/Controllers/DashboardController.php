@@ -38,6 +38,7 @@ class DashboardController extends Controller
             'recentTransactions' => fn () => $this->transactionService->getRecentForDashboard($userId),
             'accounts' => fn () => $this->accountService->listForUser($userId),
             'receivables' => fn () => $this->reimbursements->openForUser($userId),
+            'payables' => fn () => $this->reimbursements->payablesForUser($userId),
             'categories' => fn () => $this->categoryService->listForUser($userId),
         ]);
     }

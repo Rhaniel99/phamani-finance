@@ -12,6 +12,9 @@ class UpdateContactData extends Data
     public function __construct(
         #[Max(100)]
         public string $name,
+
+        /** Cobrar essa pessoa no acerto do mês (null = não muda). */
+        public ?bool $track_debts = null,
     ) {}
 
     /**

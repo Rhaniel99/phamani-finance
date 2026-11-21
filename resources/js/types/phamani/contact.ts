@@ -11,6 +11,8 @@ export interface Contact {
     } | null;
     /** E-mail do convite ainda não respondido. */
     pending_invite_email?: string | null;
+    /** Cobrar essa pessoa no acerto do mês. */
+    track_debts?: boolean;
 }
 
 export type SplitMode = 'equal' | 'custom';
@@ -32,6 +34,10 @@ export interface SplitForm {
      * Ausente = true.
      */
     include_me?: boolean;
+    /**
+     * Cobrar as partes no acerto (só de quem tem "cobrar" ligado nos Contatos). Ausente = true.
+     */
+    track?: boolean;
 }
 
 export interface TransactionSplit {
@@ -44,7 +50,14 @@ export interface TransactionSplit {
     reimbursement_account_id?: string | null;
     reimbursed_amount?: string | number | null;
     reimbursement_account?: { id: string; name: string } | null;
+    /** Entra no acerto de quem pagou. */
+    tracked?: boolean;
+    settlement_id?: string | null;
+    /** Pagamento informado por quem deve (pending) ou já confirmado. */
+    settlement?: { id: string; status: SettlementStatus } | null;
 }
+
+export type SettlementStatus = 'pending' | 'confirmed' | 'rejected';
 
 export type ShareStatus =
     | 'pending'
@@ -60,6 +73,9 @@ export interface MirrorSource {
     account_id?: string | null;
     /** Só o tipo: diz se a original está num cartão (status "na fatura"). */
     account?: { id: string; type: string } | null;
+    date?: string;
+    invoice_id?: string | null;
+    invoice?: { id: string; due_date: string } | null;
     total_amount: string | number | null;
     paid_by_contact_id: string | null;
     user?: { id: string; name: string; avatar?: string | null } | null;
@@ -68,6 +84,10 @@ export interface MirrorSource {
         id: string;
         contact_id: string | null;
         amount: string | number;
+        tracked?: boolean;
+        reimbursed_at?: string | null;
+        settlement_id?: string | null;
+        settlement?: { id: string; status: SettlementStatus } | null;
         contact?: Pick<Contact, 'id' | 'name' | 'linked_user_id'> | null;
     }>;
 }

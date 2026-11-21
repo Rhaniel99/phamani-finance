@@ -86,6 +86,8 @@ export function splitFromTransaction(t: Transaction): SplitForm | null {
             amount: equal ? '' : Number(s.amount),
         })),
         paid_by_contact_id: t.paid_by_contact_id ?? null,
+        // Editar mantém a cobrança como estava (sem partes cobradas = desligada).
+        track: t.splits.some((s) => s.contact_id !== null && s.tracked),
     };
 }
 
