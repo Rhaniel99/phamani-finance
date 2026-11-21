@@ -69,6 +69,8 @@ class DashboardService implements IDashboardService
             ->whereBetween('transactions.date', [$start, $end])
             ->groupBy('categories.id', 'categories.name', 'categories.color')
             ->selectRaw('categories.name as name, categories.color as color, SUM(transactions.amount) as value')
+            // Compras para outras pessoas têm a sua parte = 0 e não aparecem no gráfico.
+            ->havingRaw('SUM(transactions.amount) > 0')
             ->orderByDesc('value')
             ->toBase()
             ->get()

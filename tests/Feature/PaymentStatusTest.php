@@ -209,4 +209,52 @@ class PaymentStatusTest extends TestCase
             ->post(route('installments.auto-pay', $installment), ['enabled' => false])
             ->assertNotFound();
     }
+
+    public function test_moving_a_paid_transaction_to_the_future_makes_it_pending_and_restores_the_balance(): void
+    {
+        $this->store(['description' => 'Telefone', 'amount' => 625]);
+        $transaction = Transaction::where('description', 'Telefone')->firstOrFail();
+
+        $this->assertNotNull($transaction->paid_at);
+        $this->assertEqualsWithDelta(375.0, $this->balance(), 0.001);
+
+        $this->actingAs($this->user)
+            ->put(route('transactions.update', $transaction), [
+                'description' => 'Telefone',
+                'amount' => 625,
+                'type' => 'expense',
+                'category_id' => $this->category->id,
+                'account_id' => $this->account->id,
+                'date' => '2026-12-04',
+            ])
+            ->assertSessionHasNoErrors();
+
+        $transaction->refresh();
+        $this->assertNull($transaction->paid_at);
+        $this->assertFalse((bool) $transaction->balance_applied);
+        $this->assertEqualsWithDelta(1000.0, $this->balance(), 0.001);
+    }
+
+    public function test_editing_without_changing_the_date_keeps_the_status(): void
+    {
+        $this->store(['description' => 'Futuro', 'date' => '2026-12-10']);
+        $transaction = Transaction::where('description', 'Futuro')->firstOrFail();
+
+        $this->actingAs($this->user)->post(route('transactions.pay', $transaction));
+        $this->assertNotNull($transaction->fresh()->paid_at);
+
+        $this->actingAs($this->user)
+            ->put(route('transactions.update', $transaction), [
+                'description' => 'Futuro (editado)',
+                'amount' => 100,
+                'type' => 'expense',
+                'category_id' => $this->category->id,
+                'account_id' => $this->account->id,
+                'date' => '2026-12-10',
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->assertNotNull($transaction->fresh()->paid_at);
+        $this->assertEqualsWithDelta(900.0, $this->balance(), 0.001);
+    }
 }

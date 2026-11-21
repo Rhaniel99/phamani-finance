@@ -18,6 +18,7 @@ import { canMarkPaid, payerName, paymentStatus } from '@/lib/payment';
 import { InstallmentModal } from '@/components/phamani/modal/installment-modal';
 import { useEnums } from '@/hooks/use-enums';
 import { resolveEnumLabel } from '@/lib/enum-helpers';
+import { displayAmount, isThirdParty } from '@/lib/split';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { inbox } from '@/routes';
@@ -138,15 +139,22 @@ export function ShowTransactionDrawer({
 
                                 <h2 className="mb-1 text-3xl font-bold text-[#3D2817]">
                                     {isIncome ? '+' : '-'}{' '}
-                                    {formatCurrency(transaction.amount)}
+                                    {formatCurrency(displayAmount(transaction))}
                                 </h2>
-                                {transaction.total_amount != null && (
+                                {isThirdParty(transaction) ? (
                                     <p className="mb-1 text-sm text-[#8B7355]">
-                                        Sua parte de{' '}
-                                        {formatCurrency(
-                                            transaction.total_amount,
-                                        )}
+                                        Compra para outra pessoa · não entra nas
+                                        suas despesas
                                     </p>
+                                ) : (
+                                    transaction.total_amount != null && (
+                                        <p className="mb-1 text-sm text-[#8B7355]">
+                                            Sua parte de{' '}
+                                            {formatCurrency(
+                                                transaction.total_amount,
+                                            )}
+                                        </p>
+                                    )
                                 )}
                                 <p className="text-lg text-[#6B4E3D]">
                                     {transaction.name}

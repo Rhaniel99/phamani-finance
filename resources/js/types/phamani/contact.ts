@@ -27,6 +27,11 @@ export interface SplitForm {
     participants: SplitParticipantForm[];
     /** null = você pagou */
     paid_by_contact_id: string | null;
+    /**
+     * false = compra para outra pessoa: você pagou, sua parte é zero e o valor fica "a receber".
+     * Ausente = true.
+     */
+    include_me?: boolean;
 }
 
 export interface TransactionSplit {
@@ -34,6 +39,11 @@ export interface TransactionSplit {
     contact_id: string | null;
     amount: string | number;
     contact?: Pick<Contact, 'id' | 'name'> | null;
+    /** Compra para outra pessoa: quando ela devolveu (null = ainda a receber). */
+    reimbursed_at?: string | null;
+    reimbursement_account_id?: string | null;
+    reimbursed_amount?: string | number | null;
+    reimbursement_account?: { id: string; name: string } | null;
 }
 
 export type ShareStatus =

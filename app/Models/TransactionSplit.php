@@ -11,6 +11,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $transaction_id
  * @property string|null $contact_id
  * @property string $amount
+ * @property \Carbon\CarbonInterface|null $reimbursed_at
+ * @property string|null $reimbursement_account_id
+ * @property string|null $reimbursed_amount
  */
 class TransactionSplit extends BaseModel
 {
@@ -18,10 +21,15 @@ class TransactionSplit extends BaseModel
         'transaction_id',
         'contact_id',
         'amount',
+        'reimbursed_at',
+        'reimbursement_account_id',
+        'reimbursed_amount',
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
+        'reimbursed_at' => 'date:Y-m-d',
+        'reimbursed_amount' => 'decimal:2',
     ];
 
     /** @return BelongsTo<Transaction, $this> */
@@ -34,5 +42,15 @@ class TransactionSplit extends BaseModel
     public function contact(): BelongsTo
     {
         return $this->belongsTo(Contact::class);
+    }
+
+    /**
+     * Conta onde caiu o reembolso (compra para outra pessoa).
+     *
+     * @return BelongsTo<Account, $this>
+     */
+    public function reimbursementAccount(): BelongsTo
+    {
+        return $this->belongsTo(Account::class, 'reimbursement_account_id');
     }
 }

@@ -50,6 +50,11 @@ export function TransactionPreview({
     const nameOf = (id: string | null) =>
         id === null ? 'Você' : (contacts.find((c) => c.id === id)?.name ?? '—');
     const payerName = nameOf(data.split?.paid_by_contact_id ?? null);
+    // Compra para outra pessoa: só os contatos aparecem, com o valor a receber.
+    const forOthers = data.split?.include_me === false;
+    const rows = forOthers
+        ? breakdown.filter((b) => b.contact_id !== null)
+        : breakdown;
 
     return (
         <div className="relative hidden w-1/2 flex-col items-center justify-center overflow-hidden border-l-2 border-[#D4C5A9] bg-[#E8DCC4]/50 p-12 md:flex">
@@ -95,12 +100,12 @@ export function TransactionPreview({
                 </div>
 
                 <div className="space-y-4">
-                    {breakdown.length > 0 && (
+                    {rows.length > 0 && (
                         <div className="rounded-xl bg-white/50 p-3">
                             <div className="mb-2 flex items-center justify-between">
                                 <span className="flex items-center gap-2 text-sm font-bold text-[#3D2817]">
                                     <Users className="h-4 w-4 text-[#6B4E3D]" />
-                                    Divisão
+                                    {forOthers ? 'Compra para' : 'Divisão'}
                                     {data.is_installment && (
                                         <span className="text-xs font-normal text-[#8B7355]">
                                             por parcela
@@ -108,16 +113,24 @@ export function TransactionPreview({
                                     )}
                                 </span>
                                 <span className="text-xs text-[#8B7355]">
-                                    Pago por{' '}
-                                    <strong className="text-[#3D2817]">
-                                        {payerName === 'Você'
-                                            ? 'você'
-                                            : payerName}
-                                    </strong>
+                                    {forOthers ? (
+                                        <strong className="text-[#3D2817]">
+                                            A receber
+                                        </strong>
+                                    ) : (
+                                        <>
+                                            Pago por{' '}
+                                            <strong className="text-[#3D2817]">
+                                                {payerName === 'Você'
+                                                    ? 'você'
+                                                    : payerName}
+                                            </strong>
+                                        </>
+                                    )}
                                 </span>
                             </div>
                             <ul className="space-y-1">
-                                {breakdown.map((b) => (
+                                {rows.map((b) => (
                                     <li
                                         key={b.contact_id ?? 'me'}
                                         className="flex items-center justify-between text-sm"

@@ -18,6 +18,7 @@ use App\Interfaces\Services\IInstallmentService;
 use App\Interfaces\Services\IInvitationService;
 use App\Interfaces\Services\IPaymentService;
 use App\Interfaces\Services\IRecurringTransactionService;
+use App\Interfaces\Services\IReimbursementService;
 use App\Interfaces\Services\IShareService;
 use App\Interfaces\Services\ISplitService;
 use App\Interfaces\Services\ITransactionService;
@@ -37,6 +38,7 @@ use App\Services\InstallmentService;
 use App\Services\InvitationService;
 use App\Services\PaymentService;
 use App\Services\RecurringTransactionService;
+use App\Services\ReimbursementService;
 use App\Services\ShareService;
 use App\Services\SplitService;
 use App\Services\TransactionService;
@@ -62,6 +64,7 @@ class RepositoryServiceProvider extends ServiceProvider
         IInvitationService::class => InvitationService::class,
         IPaymentService::class => PaymentService::class,
         IRecurringTransactionService::class => RecurringTransactionService::class,
+        IReimbursementService::class => ReimbursementService::class,
         IShareService::class => ShareService::class,
         ISplitService::class => SplitService::class,
         ITransactionService::class => TransactionService::class,

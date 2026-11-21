@@ -25,6 +25,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { formatCurrency, formatMonth, today } from '@/lib/format';
 import { canMarkPaid, paymentStatus } from '@/lib/payment';
+import {
+    displayAmount,
+    isFullyReimbursed,
+    isThirdParty,
+    receivableSplits,
+} from '@/lib/split';
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import {
@@ -654,10 +660,25 @@ function TransactionRow({
                         )}
                         {t.recurring && <Tag>Recorrente</Tag>}
                         {t.mirrored_from_id && <Tag>Compartilhada</Tag>}
-                        {t.total_amount != null && (
-                            <Tag>
-                                Dividido · {formatCurrency(t.total_amount)}
-                            </Tag>
+                        {isThirdParty(t) ? (
+                            <>
+                                <Tag>
+                                    Para{' '}
+                                    {receivableSplits(t)
+                                        .map((s) => s.contact?.name)
+                                        .filter(Boolean)
+                                        .join(', ')}
+                                </Tag>
+                                <ReceivableTag
+                                    received={isFullyReimbursed(t)}
+                                />
+                            </>
+                        ) : (
+                            t.total_amount != null && (
+                                <Tag>
+                                    Dividido · {formatCurrency(t.total_amount)}
+                                </Tag>
+                            )
                         )}
                     </div>
                 </div>
@@ -669,7 +690,7 @@ function TransactionRow({
                         status === 'overdue' && 'text-[#A65D57]',
                     )}
                 >
-                    {isIncome ? '+' : '-'} {formatCurrency(t.amount)}
+                    {isIncome ? '+' : '-'} {formatCurrency(displayAmount(t))}
                 </span>
             </button>
 
@@ -730,6 +751,22 @@ function SummaryCard({
                 {formatCurrency(value)}
             </p>
         </div>
+    );
+}
+
+/** Compra para outra pessoa: ainda a receber ou já devolvida. */
+function ReceivableTag({ received }: { received: boolean }) {
+    return (
+        <span
+            className={cn(
+                'inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-bold tracking-wide uppercase',
+                received
+                    ? 'bg-[#E3F1E6] text-[#1F5428]'
+                    : 'bg-[#FCE7E7] text-[#A65D57]',
+            )}
+        >
+            {received ? 'Recebido' : 'A receber'}
+        </span>
     );
 }
 

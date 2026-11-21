@@ -68,7 +68,10 @@ export function TransactionForm({
         0;
     const people = contactsInSplit + 1;
     const canEnterMine =
-        !!data.split && data.split.mode === 'equal' && contactsInSplit > 0;
+        !!data.split &&
+        data.split.include_me !== false &&
+        data.split.mode === 'equal' &&
+        contactsInSplit > 0;
     const [enteredAs, setEnteredAs] = useState<'full' | 'mine'>('full');
     const [mineInput, setMineInput] = useState<number | ''>('');
     const mineMode = canEnterMine && enteredAs === 'mine';
@@ -535,13 +538,19 @@ function TransactionSummary({ data }: { data: TransactionFormData }) {
         );
         if (hasSplit) {
             parts.push(
-                <>
-                    sua parte{' '}
-                    <strong>
-                        {formatCurrency(myShare(perParcel, data.split))}
-                    </strong>{' '}
-                    por parcela
-                </>,
+                data.split?.include_me === false ? (
+                    <>
+                        <strong>tudo a receber</strong>
+                    </>
+                ) : (
+                    <>
+                        sua parte{' '}
+                        <strong>
+                            {formatCurrency(myShare(perParcel, data.split))}
+                        </strong>{' '}
+                        por parcela
+                    </>
+                ),
             );
         }
         parts.push(
@@ -555,10 +564,19 @@ function TransactionSummary({ data }: { data: TransactionFormData }) {
             <>
                 Valor cheio <strong>{formatCurrency(amount)}</strong>
             </>,
-            <>
-                sua parte{' '}
-                <strong>{formatCurrency(myShare(amount, data.split))}</strong>
-            </>,
+            data.split?.include_me === false ? (
+                <>
+                    <strong>tudo a receber</strong> (não entra nas suas
+                    despesas)
+                </>
+            ) : (
+                <>
+                    sua parte{' '}
+                    <strong>
+                        {formatCurrency(myShare(amount, data.split))}
+                    </strong>
+                </>
+            ),
         );
     }
 

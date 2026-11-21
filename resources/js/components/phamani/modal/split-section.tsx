@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/react';
-import { Check, Plus, Users } from 'lucide-react';
+import { Check, HandCoins, Plus, Users } from 'lucide-react';
 import { useState } from 'react';
 import { ContactAvatar } from '@/components/phamani/contact-avatar';
 import { ToggleField } from '@/components/toggle-field';
@@ -40,12 +40,39 @@ export function SplitSection({
     const selectedIds = (split?.participants ?? [])
         .map((p) => p.contact_id)
         .filter((id): id is string => id !== null);
-    const people = selectedIds.length + 1;
+    // Desmarcar "Você" = compra para outra pessoa (sua parte é zero, o resto fica a receber).
+    const includeMe = split?.include_me !== false;
+    const people = selectedIds.length + (includeMe ? 1 : 0);
     const nameOf = (id: string | null) =>
         id === null ? 'Você' : (contacts.find((c) => c.id === id)?.name ?? '—');
 
     function update(patch: Partial<SplitForm>) {
         if (split) onChange({ ...split, ...patch });
+    }
+
+    function toggleMe() {
+        if (!split) return;
+
+        onChange(
+            includeMe
+                ? {
+                      ...split,
+                      include_me: false,
+                      participants: split.participants.filter(
+                          (p) => p.contact_id !== null,
+                      ),
+                      // Numa compra para outra pessoa, quem pagou é você.
+                      paid_by_contact_id: null,
+                  }
+                : {
+                      ...split,
+                      include_me: true,
+                      participants: [
+                          { contact_id: null, amount: '' },
+                          ...split.participants,
+                      ],
+                  },
+        );
     }
 
     function toggleContact(contact: Contact) {
@@ -133,9 +160,25 @@ export function SplitSection({
                     <div>
                         <span className={labelClass}>Dividir entre</span>
                         <div className="flex flex-wrap gap-2">
-                            <span className="inline-flex items-center gap-1 rounded-full bg-[#3D2817] px-3 py-1.5 text-sm font-medium text-[#F5EFE6]">
-                                <Check className="h-3.5 w-3.5" /> Você
-                            </span>
+                            <button
+                                type="button"
+                                onClick={toggleMe}
+                                aria-pressed={includeMe}
+                                title={
+                                    includeMe
+                                        ? 'Desmarque se a compra foi só para outra pessoa'
+                                        : 'Incluir você na divisão'
+                                }
+                                className={cn(
+                                    'inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors',
+                                    includeMe
+                                        ? 'border-[#3D2817] bg-[#3D2817] text-[#F5EFE6]'
+                                        : 'border-[#D4C5A9] bg-white text-[#6B4E3D] hover:border-[#6B4E3D]',
+                                )}
+                            >
+                                {includeMe && <Check className="h-3.5 w-3.5" />}
+                                Você
+                            </button>
                             {contacts.map((c) => {
                                 const active = selectedIds.includes(c.id);
                                 return (
@@ -205,6 +248,23 @@ export function SplitSection({
                         )}
                     </div>
 
+                    {!includeMe && (
+                        <div className="flex items-start gap-3 rounded-xl bg-[#FBF7F1] p-3 text-xs text-[#6B4E3D]">
+                            <HandCoins className="mt-0.5 h-4 w-4 shrink-0 text-[#8B7355]" />
+                            <span>
+                                <strong className="text-[#3D2817]">
+                                    Compra para outra pessoa.
+                                </strong>{' '}
+                                Você paga (o valor cheio sai da conta ou vai
+                                para a fatura), mas não entra nas suas despesas:
+                                fica <strong>a receber</strong> até a pessoa te
+                                devolver.
+                                {selectedIds.length === 0 &&
+                                    ' Escolha para quem foi a compra.'}
+                            </span>
+                        </div>
+                    )}
+
                     {selectedIds.length > 0 && (
                         <>
                             {/* Modo */}
@@ -234,18 +294,27 @@ export function SplitSection({
                             {split.mode === 'equal' ? (
                                 <div className="space-y-2">
                                     <p className="ml-1 text-sm text-[#6B4E3D]">
-                                        {people} pessoas ·{' '}
+                                        {people === 1
+                                            ? nameOf(selectedIds[0])
+                                            : `${people} pessoas`}{' '}
+                                        ·{' '}
                                         <strong>
                                             {formatCurrency(
-                                                amount ? amount / people : 0,
+                                                amount && people
+                                                    ? amount / people
+                                                    : 0,
                                             )}
                                         </strong>{' '}
-                                        para cada
+                                        {people === 1
+                                            ? 'a receber'
+                                            : 'para cada'}
                                     </p>
-                                    <p className="ml-1 text-xs text-[#8B7355]">
-                                        Só sabe a sua parte? Escolha “Minha
-                                        parte” embaixo do campo Valor.
-                                    </p>
+                                    {includeMe && (
+                                        <p className="ml-1 text-xs text-[#8B7355]">
+                                            Só sabe a sua parte? Escolha “Minha
+                                            parte” embaixo do campo Valor.
+                                        </p>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="space-y-2">
@@ -299,41 +368,46 @@ export function SplitSection({
                                 </div>
                             )}
 
-                            {/* Quem pagou */}
-                            <div>
-                                <label htmlFor="paid-by" className={labelClass}>
-                                    Quem pagou?
-                                </label>
-                                <select
-                                    id="paid-by"
-                                    value={split.paid_by_contact_id ?? ''}
-                                    onChange={(e) =>
-                                        update({
-                                            paid_by_contact_id:
-                                                e.target.value || null,
-                                        })
-                                    }
-                                    className={smallInput}
-                                >
-                                    <option value="">Você</option>
-                                    {selectedIds.map((id) => (
-                                        <option key={id} value={id}>
-                                            {nameOf(id)}
-                                        </option>
-                                    ))}
-                                </select>
-                                {split.paid_by_contact_id && (
-                                    <p className="mt-1 ml-1 text-xs text-[#8B7355]">
-                                        Nenhuma conta sua é afetada: só a sua
-                                        parte entra como despesa.
-                                    </p>
-                                )}
-                                {errors['split.paid_by_contact_id'] && (
-                                    <p className="mt-1 ml-1 text-xs text-[#D4183D]">
-                                        {errors['split.paid_by_contact_id']}
-                                    </p>
-                                )}
-                            </div>
+                            {/* Quem pagou (numa compra para outra pessoa, é você) */}
+                            {includeMe && (
+                                <div>
+                                    <label
+                                        htmlFor="paid-by"
+                                        className={labelClass}
+                                    >
+                                        Quem pagou?
+                                    </label>
+                                    <select
+                                        id="paid-by"
+                                        value={split.paid_by_contact_id ?? ''}
+                                        onChange={(e) =>
+                                            update({
+                                                paid_by_contact_id:
+                                                    e.target.value || null,
+                                            })
+                                        }
+                                        className={smallInput}
+                                    >
+                                        <option value="">Você</option>
+                                        {selectedIds.map((id) => (
+                                            <option key={id} value={id}>
+                                                {nameOf(id)}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    {split.paid_by_contact_id && (
+                                        <p className="mt-1 ml-1 text-xs text-[#8B7355]">
+                                            Nenhuma conta sua é afetada: só a
+                                            sua parte entra como despesa.
+                                        </p>
+                                    )}
+                                    {errors['split.paid_by_contact_id'] && (
+                                        <p className="mt-1 ml-1 text-xs text-[#D4183D]">
+                                            {errors['split.paid_by_contact_id']}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
                         </>
                     )}
                 </div>

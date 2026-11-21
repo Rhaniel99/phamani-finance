@@ -10,6 +10,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InboxController;
 use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\RecurringTransactionController;
+use App\Http\Controllers\ReimbursementController;
 use App\Http\Controllers\ShareController;
 use App\Http\Controllers\TransactionController;
 use Illuminate\Support\Facades\Route;
@@ -33,6 +34,10 @@ Route::post('logout', [GoogleAuthController::class, 'logout'])
 */
 Route::middleware('auth')->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
+
+    // Compra para outra pessoa: "a receber"
+    Route::post('receivables/{contact}/receive', [ReimbursementController::class, 'receive'])->name('receivables.receive');
+    Route::delete('receivables/{split}', [ReimbursementController::class, 'undo'])->name('receivables.undo');
 
     Route::get('transactions', [TransactionController::class, 'index'])->name('transactions.index');
     Route::post('transactions', [TransactionController::class, 'store'])->name('transactions.store');
