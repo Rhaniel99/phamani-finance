@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { CategoryIcon } from '@/components/phamani/category-icon';
 import { ReceivablesCard } from '@/components/phamani/dashboard/receivables-card';
 import { AccountsList } from '@/components/phamani/list/accounts-list';
+import { CreateAccountDrawer } from '@/components/phamani/drawer/create-account-drawer';
 import { AccountsListModal } from '@/components/phamani/modal/accounts-list-modal';
 import { Button } from '@/components/phamani/ui/button';
 import { Card } from '@/components/phamani/ui/card';
@@ -28,6 +29,7 @@ export function DashboardSidebar({
     onNewTransaction,
 }: DashboardSidebarProps) {
     const [accountsModalOpen, setAccountsModalOpen] = useState(false);
+    const [editingAccount, setEditingAccount] = useState<Account | null>(null);
     const todayStr = today();
 
     return (
@@ -120,6 +122,17 @@ export function DashboardSidebar({
                 open={accountsModalOpen}
                 onOpenChange={setAccountsModalOpen}
                 accounts={accounts}
+                onEdit={(account) => {
+                    setAccountsModalOpen(false);
+                    setEditingAccount(account);
+                }}
+            />
+
+            <CreateAccountDrawer
+                isOpen={editingAccount !== null}
+                onClose={() => setEditingAccount(null)}
+                accounts={accounts}
+                account={editingAccount}
             />
         </>
     );

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\DTOs\Category\StoreCategoryData;
+use App\DTOs\Category\UpdateCategoryData;
 use App\Enums\Category\Color;
 use App\Enums\Category\Icon;
 use App\Interfaces\Repositories\ICategoryRepository;
@@ -51,6 +52,18 @@ class CategoryService implements ICategoryService
             'color' => $dto->color->value,
             'icon' => $dto->icon->value,
         ]);
+    }
+
+    public function update(Category $category, UpdateCategoryData $dto): Category
+    {
+        $category->update([
+            'name' => $dto->name,
+            'type' => $dto->type,
+            'color' => $dto->color->value,
+            'icon' => $dto->icon->value,
+        ]);
+
+        return $category;
     }
 
     public function createDefaultsForUser(string $userId): void

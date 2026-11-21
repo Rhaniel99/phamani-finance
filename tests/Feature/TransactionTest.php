@@ -142,4 +142,53 @@ class TransactionTest extends TestCase
             ])
             ->assertSessionHasErrors('name');
     }
+
+    public function test_user_can_edit_a_category(): void
+    {
+        $category = Category::where('user_id', $this->user->id)->where('name', 'Lazer')->firstOrFail();
+
+        $this->actingAs($this->user)
+            ->put(route('categories.update', $category), [
+                'name' => 'Lazer e viagens',
+                'type' => 'expense',
+                'color' => 'teal',
+                'icon' => 'tag',
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('categories', ['id' => $category->id, 'name' => 'Lazer e viagens', 'color' => 'teal']);
+    }
+
+    public function test_editing_a_category_keeps_its_own_name_but_not_a_taken_one(): void
+    {
+        $category = Category::where('user_id', $this->user->id)->where('name', 'Lazer')->firstOrFail();
+
+        $this->actingAs($this->user)
+            ->put(route('categories.update', $category), ['name' => 'Lazer', 'type' => 'expense', 'color' => 'purple', 'icon' => 'gamepad'])
+            ->assertSessionHasNoErrors();
+
+        $this->actingAs($this->user)
+            ->put(route('categories.update', $category), ['name' => 'Saúde', 'type' => 'expense', 'color' => 'purple', 'icon' => 'gamepad'])
+            ->assertSessionHasErrors('name');
+    }
+
+    public function test_user_cannot_edit_someone_elses_category(): void
+    {
+        $category = Category::where('user_id', $this->user->id)->firstOrFail();
+
+        $this->actingAs(User::factory()->create())
+            ->put(route('categories.update', $category), ['name' => 'X', 'type' => 'expense', 'color' => 'teal', 'icon' => 'tag'])
+            ->assertNotFound();
+    }
+
+    public function test_user_can_rename_an_account(): void
+    {
+        $account = Account::where('user_id', $this->user->id)->firstOrFail();
+
+        $this->actingAs($this->user)
+            ->put(route('accounts.update', $account), ['name' => 'Nubank Conta'])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame('Nubank Conta', $account->fresh()->name);
+    }
 }

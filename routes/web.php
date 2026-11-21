@@ -57,6 +57,7 @@ Route::middleware('auth')->group(function () {
     Route::post('invoices/{invoice}/pay', [CreditCardController::class, 'pay'])->name('invoices.pay');
     Route::delete('invoices/{invoice}/payment', [CreditCardController::class, 'undo'])->name('invoices.undo');
     Route::post('categories', [CategoryController::class, 'store'])->name('categories.store');
+    Route::put('categories/{category}', [CategoryController::class, 'update'])->name('categories.update');
 
     Route::post('contacts', [ContactController::class, 'store'])->name('contacts.store');
     Route::put('contacts/{contact}', [ContactController::class, 'update'])->name('contacts.update');
