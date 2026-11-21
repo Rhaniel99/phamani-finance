@@ -8,12 +8,15 @@ use App\Interfaces\Repositories\ITransactionRepository;
 use App\Interfaces\Services\IBalanceService;
 use App\Interfaces\Services\IInstallmentService;
 use App\Interfaces\Services\IRecurringTransactionService;
+use App\Interfaces\Services\IReimbursementService;
 use App\Interfaces\Services\IShareService;
 use App\Interfaces\Services\ISplitService;
 use App\Interfaces\Services\ITransactionService;
+use App\Models\Account;
 use App\Models\Transaction;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -26,6 +29,7 @@ class TransactionService implements ITransactionService
         protected IRecurringTransactionService $recurringService,
         protected ISplitService $splits,
         protected IShareService $shares,
+        protected IReimbursementService $reimbursements,
     ) {}
 
     public function create(string $userId, StoreTransactionData $dto): Model
@@ -83,9 +87,10 @@ class TransactionService implements ITransactionService
             }
 
             $parts = $this->splits->compute($dto->amount, $dto->split);
+            $accountId = $parts['paid_by_contact_id'] === null ? $dto->account_id : null;
 
             $this->repository->update($transaction->id, [
-                'account_id' => $parts['paid_by_contact_id'] === null ? $dto->account_id : null,
+                'account_id' => $accountId,
                 'category_id' => $dto->category_id,
                 'name' => $name,
                 'description' => $dto->description,
@@ -94,6 +99,7 @@ class TransactionService implements ITransactionService
                 'total_amount' => $parts['total_amount'],
                 'paid_by_contact_id' => $parts['paid_by_contact_id'],
                 'date' => $dto->date,
+                'paid_at' => $this->paidAtAfterEdit($transaction, $dto->date, $accountId),
             ]);
 
             $transaction->refresh();
@@ -108,6 +114,25 @@ class TransactionService implements ITransactionService
         });
     }
 
+    /**
+     * Ao mudar a data, o status volta à regra de criação:
+     * data futura → pendente (não mexe no saldo); hoje/passada → paga na nova data; cartão → sempre paga.
+     * Sem mudança de data, o status fica como está.
+     */
+    private function paidAtAfterEdit(Transaction $transaction, string $newDate, ?string $accountId): ?string
+    {
+        $newDate = Carbon::parse($newDate)->toDateString();
+        $current = $transaction->paid_at?->toDateString();
+
+        if ($transaction->date->toDateString() === $newDate) {
+            return $current;
+        }
+
+        $isCard = $accountId !== null && Account::query()->whereKey($accountId)->value('type') === 'credit';
+
+        return $isCard || $newDate <= now()->toDateString() ? $newDate : null;
+    }
+
     public function delete(Transaction $transaction): void
     {
         if ($transaction->installment_id !== null && $transaction->installment !== null) {
@@ -120,6 +145,8 @@ class TransactionService implements ITransactionService
             // Quem aceitou a divisão perde a cópia.
             $this->shares->removeFor($transaction);
             $this->balance->revert($transaction);
+            // Reembolsos já recebidos saem da conta junto com a compra.
+            $this->reimbursements->revertFor($transaction);
             $this->repository->delete($transaction->id);
         });
     }

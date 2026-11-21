@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Interfaces\Services\IAccountService;
 use App\Interfaces\Services\ICategoryService;
 use App\Interfaces\Services\IDashboardService;
+use App\Interfaces\Services\IReimbursementService;
 use App\Interfaces\Services\ITransactionService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -18,6 +19,7 @@ class DashboardController extends Controller
         protected ICategoryService $categoryService,
         protected IDashboardService $dashboardService,
         protected ITransactionService $transactionService,
+        protected IReimbursementService $reimbursements,
     ) {}
 
     public function __invoke(Request $request): Response
@@ -35,6 +37,7 @@ class DashboardController extends Controller
             'categoryPie' => fn () => $this->dashboardService->categoryPie($userId, $period),
             'recentTransactions' => fn () => $this->transactionService->getRecentForDashboard($userId),
             'accounts' => fn () => $this->accountService->listForUser($userId),
+            'receivables' => fn () => $this->reimbursements->openForUser($userId),
             'categories' => fn () => $this->categoryService->listForUser($userId),
         ]);
     }

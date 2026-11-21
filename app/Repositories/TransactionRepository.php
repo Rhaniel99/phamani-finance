@@ -33,8 +33,9 @@ class TransactionRepository extends CoreRepository implements ITransactionReposi
             ->with([
                 'account:id,name,type',
                 'category:id,name,color,icon',
-                'splits:id,transaction_id,contact_id,amount',
+                'splits:id,transaction_id,contact_id,amount,reimbursed_at,reimbursement_account_id,reimbursed_amount',
                 'splits.contact:id,name',
+                'splits.reimbursementAccount:id,name',
                 'paidBy:id,name,linked_user_id',
             ])
             ->orderByDesc('created_at')
@@ -125,8 +126,9 @@ class TransactionRepository extends CoreRepository implements ITransactionReposi
             ->with([
                 'account:id,name,type',
                 'category:id,name,color,icon',
-                'splits:id,transaction_id,contact_id,amount',
+                'splits:id,transaction_id,contact_id,amount,reimbursed_at,reimbursement_account_id,reimbursed_amount',
                 'splits.contact:id,name',
+                'splits.reimbursementAccount:id,name',
                 'paidBy:id,name,linked_user_id',
                 'mirroredFrom:id,user_id,total_amount,paid_by_contact_id',
                 'mirroredFrom.user:id,name,avatar',

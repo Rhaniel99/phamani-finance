@@ -2,6 +2,7 @@ import { Link } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { CategoryIcon } from '@/components/phamani/category-icon';
+import { ReceivablesCard } from '@/components/phamani/dashboard/receivables-card';
 import { AccountsList } from '@/components/phamani/list/accounts-list';
 import { AccountsListModal } from '@/components/phamani/modal/accounts-list-modal';
 import { Button } from '@/components/phamani/ui/button';
@@ -9,18 +10,21 @@ import { Card } from '@/components/phamani/ui/card';
 import { PaymentStatusBadge } from '@/components/phamani/payment-status-badge';
 import { formatCurrency, formatDate, today } from '@/lib/format';
 import { paymentStatus } from '@/lib/payment';
+import { displayAmount, isFullyReimbursed, isThirdParty } from '@/lib/split';
 import { index as transactionsIndex } from '@/routes/transactions';
-import type { Account, Transaction } from '@/types/phamani';
+import type { Account, Receivable, Transaction } from '@/types/phamani';
 
 interface DashboardSidebarProps {
     recentTransactions: Transaction[];
     accounts: Account[];
+    receivables: Receivable[];
     onNewTransaction: () => void;
 }
 
 export function DashboardSidebar({
     recentTransactions,
     accounts,
+    receivables,
     onNewTransaction,
 }: DashboardSidebarProps) {
     const [accountsModalOpen, setAccountsModalOpen] = useState(false);
@@ -75,6 +79,12 @@ export function DashboardSidebar({
                                     </p>
                                     <p className="flex items-center gap-2 text-xs text-[#8B7355]">
                                         {formatDate(t.date)}
+                                        {isThirdParty(t) &&
+                                            !isFullyReimbursed(t) && (
+                                                <span className="rounded-md bg-[#FCE7E7] px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-[#A65D57] uppercase">
+                                                    A receber
+                                                </span>
+                                            )}
                                         {t.date.slice(0, 10) > todayStr ? (
                                             <span className="rounded-md bg-[#E8DCC4] px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-[#6B4E3D] uppercase">
                                                 Agendada
@@ -92,12 +102,14 @@ export function DashboardSidebar({
                                 className={`shrink-0 text-sm font-bold ${t.type === 'income' ? 'text-[#4A7A5E]' : 'text-[#3D2817]'}`}
                             >
                                 {t.type === 'income' ? '+' : '-'}{' '}
-                                {formatCurrency(t.amount)}
+                                {formatCurrency(displayAmount(t))}
                             </span>
                         </Card>
                     ))}
                 </div>
             </div>
+
+            <ReceivablesCard receivables={receivables} accounts={accounts} />
 
             <AccountsList
                 accounts={accounts}

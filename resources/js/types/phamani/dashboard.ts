@@ -33,3 +33,23 @@ export interface CategoryPiePoint {
 }
 
 export type DashboardPeriod = 'monthly' | 'yearly';
+
+/** Compra para outra pessoa: o que um contato ainda te deve. */
+export interface ReceivableItem {
+    /** id da parte (transaction_split) */
+    id: string;
+    transaction_id: string;
+    name: string;
+    date: string;
+    amount: number;
+    /** A data da compra já chegou (as futuras são parcelas ainda por vir). */
+    due: boolean;
+}
+
+export interface Receivable {
+    contact: { id: string; name: string; avatar: string | null };
+    /** Só o que já venceu. */
+    due_total: number;
+    due_count: number;
+    items: ReceivableItem[];
+}

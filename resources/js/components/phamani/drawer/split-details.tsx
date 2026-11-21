@@ -1,11 +1,17 @@
-import { usePage } from '@inertiajs/react';
-import { Users } from 'lucide-react';
+import { router, usePage } from '@inertiajs/react';
+import { HandCoins, Users } from 'lucide-react';
 import { ContactAvatar } from '@/components/phamani/contact-avatar';
 import { useContactAvatar } from '@/hooks/use-contacts';
-import { formatCurrency } from '@/lib/format';
+import { formatCurrency, formatDate } from '@/lib/format';
+import { isThirdParty } from '@/lib/split';
 import { cn } from '@/lib/utils';
+import { undo as undoReimbursement } from '@/routes/receivables';
 import { SHARE_STATUS_LABELS } from '@/types/phamani';
-import type { ShareStatus, Transaction } from '@/types/phamani';
+import type {
+    ShareStatus,
+    Transaction,
+    TransactionSplit,
+} from '@/types/phamani';
 
 const STATUS_STYLES: Record<ShareStatus, string> = {
     pending: 'bg-[#E8DCC4] text-[#6B4E3D]',
@@ -33,6 +39,8 @@ export function SplitDetails({ transaction }: { transaction: Transaction }) {
     if (splits.length === 0) return null;
 
     const ownerName = isMirror ? (source.user?.name ?? 'Quem criou') : 'Você';
+    // Compra para outra pessoa: mostra só quem te deve e se já devolveu.
+    const forOthers = !isMirror && isThirdParty(transaction);
     const total = isMirror ? source.total_amount : transaction.total_amount;
 
     const labelOf = (s: (typeof splits)[number]) => {
@@ -83,16 +91,30 @@ export function SplitDetails({ transaction }: { transaction: Transaction }) {
     };
 
     // Dono primeiro
-    const ordered = [...splits].sort(
-        (a, b) => Number(a.contact_id !== null) - Number(b.contact_id !== null),
-    );
+    const ordered = [...splits]
+        .filter((s) => !forOthers || s.contact_id !== null)
+        .sort(
+            (a, b) =>
+                Number(a.contact_id !== null) - Number(b.contact_id !== null),
+        );
+
+    function undo(splitId: string) {
+        router.delete(undoReimbursement.url(splitId), {
+            preserveScroll: true,
+            preserveState: true,
+        });
+    }
 
     return (
         <div className="rounded-3xl border border-[#D4C5A9] bg-white p-6">
             <div className="mb-4 flex items-center justify-between">
                 <h4 className="flex items-center gap-2 font-bold text-[#3D2817]">
-                    <Users className="h-4 w-4" />
-                    Divisão
+                    {forOthers ? (
+                        <HandCoins className="h-4 w-4" />
+                    ) : (
+                        <Users className="h-4 w-4" />
+                    )}
+                    {forOthers ? 'Compra para outra pessoa' : 'Divisão'}
                 </h4>
                 <span className="text-xs text-[#8B7355]">
                     Pago por <strong>{payer}</strong>
@@ -104,7 +126,7 @@ export function SplitDetails({ transaction }: { transaction: Transaction }) {
                     return (
                         <li
                             key={s.id}
-                            className="flex items-center justify-between gap-2 text-sm"
+                            className="flex flex-wrap items-center justify-between gap-2 text-sm"
                         >
                             <span className="flex items-center gap-2 text-[#3D2817]">
                                 <ContactAvatar
@@ -127,6 +149,12 @@ export function SplitDetails({ transaction }: { transaction: Transaction }) {
                             <span className="font-bold text-[#3D2817]">
                                 {formatCurrency(s.amount)}
                             </span>
+                            {forOthers && (
+                                <ReimbursementStatus
+                                    split={s as TransactionSplit}
+                                    onUndo={() => undo(s.id)}
+                                />
+                            )}
                         </li>
                     );
                 })}
@@ -138,5 +166,40 @@ export function SplitDetails({ transaction }: { transaction: Transaction }) {
                 </span>
             </div>
         </div>
+    );
+}
+
+/** "A receber" ou "Recebido em … na conta …" (com opção de desfazer). */
+function ReimbursementStatus({
+    split,
+    onUndo,
+}: {
+    split: TransactionSplit;
+    onUndo: () => void;
+}) {
+    if (!split.reimbursed_at) {
+        return (
+            <p className="w-full text-xs text-[#A65D57]">
+                A receber · registre quando o dinheiro chegar (card “A receber”
+                no início).
+            </p>
+        );
+    }
+
+    return (
+        <p className="flex w-full items-center justify-between text-xs text-[#1F5428]">
+            <span>
+                Recebido em {formatDate(split.reimbursed_at)}
+                {split.reimbursement_account &&
+                    ` · ${split.reimbursement_account.name}`}
+            </span>
+            <button
+                type="button"
+                onClick={onUndo}
+                className="font-semibold text-[#8B7355] underline-offset-2 hover:underline"
+            >
+                Desfazer
+            </button>
+        </p>
     );
 }

@@ -8,6 +8,7 @@ use App\Interfaces\Repositories\IInstallmentRepository;
 use App\Interfaces\Repositories\ITransactionRepository;
 use App\Interfaces\Services\IBalanceService;
 use App\Interfaces\Services\IInstallmentService;
+use App\Interfaces\Services\IReimbursementService;
 use App\Interfaces\Services\IShareService;
 use App\Interfaces\Services\ISplitService;
 use App\Models\Installment;
@@ -23,6 +24,7 @@ class InstallmentService implements IInstallmentService
         protected IBalanceService $balance,
         protected ISplitService $splits,
         protected IShareService $shares,
+        protected IReimbursementService $reimbursements,
     ) {}
 
     /**
@@ -131,6 +133,7 @@ class InstallmentService implements IInstallmentService
             foreach ($installment->transactions()->get() as $parcel) {
                 $this->shares->removeFor($parcel);
                 $this->balance->revert($parcel);
+                $this->reimbursements->revertFor($parcel);
             }
 
             $this->transactions->deleteByInstallment($installment->id);

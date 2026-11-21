@@ -38,12 +38,19 @@ class SplitService implements ISplitService
             throw ValidationException::withMessages(['split.participants' => 'Há um contato repetido na divisão.']);
         }
 
+        if (! $split->include_me && $split->paid_by_contact_id !== null) {
+            throw ValidationException::withMessages(['split.paid_by_contact_id' => 'Numa compra para outra pessoa, quem pagou é você.']);
+        }
+
         if ($split->paid_by_contact_id !== null && ! in_array($split->paid_by_contact_id, $contacts, true)) {
             throw ValidationException::withMessages(['split.paid_by_contact_id' => 'Quem pagou precisa estar na divisão.']);
         }
 
         if ($split->mode === 'custom') {
-            $sumCents = array_sum(array_map(fn (SplitParticipantData $p) => $this->cents((float) $p->amount), $split->participants));
+            $sumCents = array_sum(array_map(
+                fn (SplitParticipantData $p) => $p->contact_id === null && ! $split->include_me ? 0 : $this->cents((float) $p->amount),
+                $split->participants,
+            ));
 
             if ($sumCents !== $this->cents($amount)) {
                 throw ValidationException::withMessages([
@@ -64,7 +71,12 @@ class SplitService implements ISplitService
         $weights = [];
         foreach ($this->participantsWithMe($split) as $participant) {
             $key = $participant->contact_id ?? self::ME;
-            $weights[$key] = $split->mode === 'custom' ? $this->cents((float) $participant->amount) : 1;
+            $weights[$key] = match (true) {
+                // Compra para outra pessoa: você não entra na conta.
+                $key === self::ME && ! $split->include_me => 0,
+                $split->mode === 'custom' => $this->cents((float) $participant->amount),
+                default => 1,
+            };
         }
 
         $totalCents = $this->cents($total);
@@ -91,13 +103,25 @@ class SplitService implements ISplitService
 
     public function sync(Transaction $transaction, array $shares): void
     {
+        $existing = TransactionSplit::query()->where('transaction_id', $transaction->id)->get();
+
+        // Reembolsos já registrados ("recebido") continuam valendo para quem segue na divisão.
+        $reimbursed = $existing
+            ->filter(fn (TransactionSplit $s) => $s->contact_id !== null && $s->reimbursed_at !== null)
+            ->keyBy('contact_id');
+
         TransactionSplit::query()->where('transaction_id', $transaction->id)->delete();
 
         foreach ($shares as $key => $amount) {
+            $previous = $key === self::ME ? null : $reimbursed->get($key);
+
             TransactionSplit::query()->create([
                 'transaction_id' => $transaction->id,
                 'contact_id' => $key === self::ME ? null : $key,
                 'amount' => $amount,
+                'reimbursed_at' => $previous?->reimbursed_at?->toDateString(),
+                'reimbursement_account_id' => $previous?->reimbursement_account_id,
+                'reimbursed_amount' => $previous?->reimbursed_amount,
             ]);
         }
 
