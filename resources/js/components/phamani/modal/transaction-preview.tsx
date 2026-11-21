@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useContacts } from '@/hooks/use-contacts';
 import { splitBreakdown } from '@/lib/split';
 import { getInstallmentValue } from '@/lib/transaction-math';
+import { ACCOUNT_TYPE_LABELS } from '@/types/phamani';
 import type { Account, Category, TransactionFormData } from '@/types/phamani';
 
 interface TransactionPreviewProps {
@@ -57,7 +58,7 @@ export function TransactionPreview({
         : breakdown;
 
     return (
-        <div className="relative hidden w-1/2 flex-col items-center justify-center overflow-hidden border-l-2 border-[#D4C5A9] bg-[#E8DCC4]/50 p-12 md:flex">
+        <div className="relative hidden w-[42%] flex-col items-center justify-center overflow-hidden border-l-2 border-[#D4C5A9] bg-[#E8DCC4]/50 p-12 md:flex">
             <div className="absolute top-0 right-0 h-64 w-64 rounded-full bg-[#D4C5A9]/20 blur-3xl" />
             <div className="absolute bottom-0 left-0 h-64 w-64 rounded-full bg-[#6B4E3D]/10 blur-3xl" />
 
@@ -83,7 +84,9 @@ export function TransactionPreview({
                             {account?.name ?? '—'}
                         </p>
                         <p className="text-xs font-bold text-[#3D2817] uppercase opacity-60">
-                            Conta
+                            {account
+                                ? ACCOUNT_TYPE_LABELS[account.type]
+                                : 'Conta'}
                         </p>
                     </div>
                 </div>

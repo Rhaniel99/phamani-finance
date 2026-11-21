@@ -27,6 +27,21 @@ export function TransactionModalLayout({
 }: TransactionModalLayoutProps) {
     const [accountDrawerOpen, setAccountDrawerOpen] = useState(false);
     const [categoryDrawerOpen, setCategoryDrawerOpen] = useState(false);
+    // null = criando; preenchido = editando
+    const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+    const [editingCategory, setEditingCategory] = useState<Category | null>(
+        null,
+    );
+
+    function openAccountDrawer(account: Account | null) {
+        setEditingAccount(account);
+        setAccountDrawerOpen(true);
+    }
+
+    function openCategoryDrawer(category: Category | null) {
+        setEditingCategory(category);
+        setCategoryDrawerOpen(true);
+    }
 
     const { form, submit, isEditing } = useTransactionForm(
         transaction,
@@ -58,7 +73,7 @@ export function TransactionModalLayout({
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    className="relative flex h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-[2rem] border-2 border-[#E8DCC4] bg-[#F5EFE6] shadow-2xl md:flex-row"
+                    className="relative flex h-[85vh] w-full max-w-6xl flex-col overflow-hidden rounded-[2rem] border-2 border-[#E8DCC4] bg-[#F5EFE6] shadow-2xl md:flex-row"
                 >
                     <button
                         type="button"
@@ -76,8 +91,10 @@ export function TransactionModalLayout({
                         onSubmit={submit}
                         isEditing={isEditing}
                         isInstallmentParcel={!!transaction?.installment_id}
-                        onCreateCategory={() => setCategoryDrawerOpen(true)}
-                        onCreateAccount={() => setAccountDrawerOpen(true)}
+                        onCreateCategory={() => openCategoryDrawer(null)}
+                        onCreateAccount={() => openAccountDrawer(null)}
+                        onEditCategory={openCategoryDrawer}
+                        onEditAccount={openAccountDrawer}
                     />
 
                     <TransactionPreview
@@ -92,10 +109,12 @@ export function TransactionModalLayout({
                 isOpen={accountDrawerOpen}
                 onClose={() => setAccountDrawerOpen(false)}
                 accounts={accounts}
+                account={editingAccount}
             />
             <CreateCategoryDrawer
                 isOpen={categoryDrawerOpen}
                 onClose={() => setCategoryDrawerOpen(false)}
+                category={editingCategory}
             />
         </>
     );

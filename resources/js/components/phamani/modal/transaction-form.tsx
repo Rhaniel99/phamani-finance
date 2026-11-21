@@ -21,6 +21,8 @@ interface TransactionFormProps {
     onSubmit: () => void;
     onCreateCategory: () => void;
     onCreateAccount: () => void;
+    onEditCategory?: (category: Category) => void;
+    onEditAccount?: (account: Account) => void;
     /** Em edição não dá para transformar em parcelado/recorrente. */
     isEditing?: boolean;
     /** Editando uma parcela: oferece repetir o valor nas próximas. */
@@ -44,6 +46,8 @@ export function TransactionForm({
     onSubmit,
     onCreateCategory,
     onCreateAccount,
+    onEditCategory,
+    onEditAccount,
     isEditing = false,
     isInstallmentParcel = false,
 }: TransactionFormProps) {
@@ -124,7 +128,7 @@ export function TransactionForm({
     return (
         <Form
             onSubmit={onSubmit}
-            className="w-full overflow-y-auto bg-[#F5EFE6] p-8 md:w-1/2 md:p-12"
+            className="w-full overflow-y-auto bg-[#F5EFE6] p-8 md:w-[58%] md:p-12"
         >
             <h2 className="mb-8 text-2xl font-bold text-[#3D2817]">
                 {isEditing ? 'Editar Transação' : 'Nova Transação'}
@@ -254,6 +258,7 @@ export function TransactionForm({
                             categories={filteredCategories}
                             onChange={(c) => setData('category_id', c.id)}
                             onCreate={onCreateCategory}
+                            onEdit={onEditCategory}
                         />
                         <FieldError message={errors.category_id} />
                     </div>
@@ -265,6 +270,7 @@ export function TransactionForm({
                                 accounts={accounts}
                                 onChange={(a) => setData('account_id', a.id)}
                                 onCreate={onCreateAccount}
+                                onEdit={onEditAccount}
                             />
                             <FieldError message={errors.account_id} />
                         </div>

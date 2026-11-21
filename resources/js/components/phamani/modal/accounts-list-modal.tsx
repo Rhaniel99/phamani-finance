@@ -1,4 +1,5 @@
-import { Wallet } from 'lucide-react';
+import { Pencil } from 'lucide-react';
+import { AccountIcon } from '@/components/phamani/account-icon';
 import {
     Dialog,
     DialogContent,
@@ -14,12 +15,14 @@ interface AccountsListModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     accounts: Account[];
+    onEdit?: (account: Account) => void;
 }
 
 export function AccountsListModal({
     open,
     onOpenChange,
     accounts,
+    onEdit,
 }: AccountsListModalProps) {
     // Cartão é dívida (fatura), não entra no saldo.
     const totalBalance = accounts
@@ -53,9 +56,10 @@ export function AccountsListModal({
                             className="flex items-center justify-between rounded-2xl border border-[#E8DCC4] bg-white p-4 transition-colors hover:bg-[#E8DCC4]/40"
                         >
                             <div className="flex items-center gap-3">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#3D2817]/10">
-                                    <Wallet className="h-5 w-5 text-[#3D2817]" />
-                                </div>
+                                <AccountIcon
+                                    type={account.type}
+                                    className="h-10 w-10 rounded-xl"
+                                />
                                 <div>
                                     <p className="text-sm font-semibold text-[#3D2817]">
                                         {account.name}
@@ -64,6 +68,17 @@ export function AccountsListModal({
                                         {ACCOUNT_TYPE_LABELS[account.type]}
                                     </p>
                                 </div>
+                                {onEdit && (
+                                    <button
+                                        type="button"
+                                        aria-label={`Editar ${account.name}`}
+                                        title="Editar"
+                                        onClick={() => onEdit(account)}
+                                        className="rounded-md p-1.5 text-[#8B7355] hover:bg-[#E8DCC4] hover:text-[#3D2817]"
+                                    >
+                                        <Pencil className="h-3.5 w-3.5" />
+                                    </button>
+                                )}
                             </div>
 
                             {isCreditCard(account) ? (

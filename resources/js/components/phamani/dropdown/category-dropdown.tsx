@@ -1,5 +1,7 @@
-import { ChevronDown } from 'lucide-react';
+import { Pencil } from 'lucide-react';
+import { useState } from 'react';
 import { CategoryIcon } from '@/components/phamani/category-icon';
+import { DropdownTrigger } from '@/components/phamani/dropdown/dropdown-trigger';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -14,6 +16,7 @@ interface CategoryDropdownProps {
     categories: Category[];
     onChange: (category: Category) => void;
     onCreate: () => void;
+    onEdit?: (category: Category) => void;
 }
 
 export function CategoryDropdown({
@@ -21,45 +24,59 @@ export function CategoryDropdown({
     categories,
     onChange,
     onCreate,
+    onEdit,
 }: CategoryDropdownProps) {
+    const [open, setOpen] = useState(false);
+
     return (
-        <DropdownMenu>
+        <DropdownMenu open={open} onOpenChange={setOpen}>
             <DropdownMenuTrigger asChild>
-                <button
-                    type="button"
-                    className="flex w-full items-center justify-between rounded-xl border-2 border-[#E8DCC4] bg-white px-4 py-3 transition-colors hover:border-[#6B4E3D]"
-                >
-                    {value ? (
-                        <div className="flex min-w-0 items-center gap-3">
+                <DropdownTrigger
+                    icon={
+                        value ? (
                             <CategoryIcon
                                 category={value}
                                 className="h-8 w-8 shrink-0"
                             />
-                            <span className="truncate text-[#3D2817]">
-                                {value.name}
-                            </span>
-                        </div>
-                    ) : (
-                        <span className="text-[#8B7355]">Categoria</span>
-                    )}
-                    <ChevronDown className="h-4 w-4 shrink-0 text-[#8B7355]" />
-                </button>
+                        ) : undefined
+                    }
+                    title={value ? value.name : 'Categoria'}
+                    placeholder={!value}
+                />
             </DropdownMenuTrigger>
 
             <DropdownMenuContent
                 side="bottom"
                 align="start"
                 sideOffset={8}
-                className="z-[9999] max-h-72 w-(--radix-dropdown-menu-trigger-width) overflow-y-auto rounded-xl border border-[#E8DCC4] bg-[#F5EFE6] shadow-xl"
+                className="z-[9999] max-h-72 w-(--radix-dropdown-menu-trigger-width) min-w-56 overflow-y-auto rounded-xl border border-[#E8DCC4] bg-[#F5EFE6] shadow-xl"
             >
                 {categories.map((cat) => (
                     <DropdownMenuItem
                         key={cat.id}
                         onSelect={() => onChange(cat)}
-                        className="flex cursor-pointer items-center gap-3"
+                        className="group flex cursor-pointer items-center gap-3"
                     >
                         <CategoryIcon category={cat} className="h-7 w-7" />
-                        <span>{cat.name}</span>
+                        <span className="min-w-0 flex-1 truncate">
+                            {cat.name}
+                        </span>
+                        {onEdit && (
+                            <button
+                                type="button"
+                                aria-label={`Editar ${cat.name}`}
+                                title="Editar"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setOpen(false);
+                                    onEdit(cat);
+                                }}
+                                className="rounded-md p-1.5 text-[#8B7355] opacity-60 group-hover:opacity-100 hover:bg-[#E8DCC4] hover:text-[#3D2817]"
+                            >
+                                <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                        )}
                     </DropdownMenuItem>
                 ))}
 
