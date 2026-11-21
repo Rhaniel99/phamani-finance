@@ -11,8 +11,11 @@ use App\Interfaces\Services\IRecurringTransactionService;
 use App\Interfaces\Services\IReimbursementService;
 use App\Interfaces\Services\IShareService;
 use App\Interfaces\Services\ISplitService;
+use App\Interfaces\Services\ITagService;
 use App\Interfaces\Services\ITransactionService;
 use App\Models\Account;
+use App\Models\Installment;
+use App\Models\RecurringTransaction;
 use App\Models\Transaction;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Model;
@@ -30,12 +33,31 @@ class TransactionService implements ITransactionService
         protected ISplitService $splits,
         protected IShareService $shares,
         protected IReimbursementService $reimbursements,
+        protected ITagService $tags,
     ) {}
 
     public function create(string $userId, StoreTransactionData $dto): Model
     {
         $this->splits->validate($dto->split, $dto->amount, $dto->type);
 
+        return DB::transaction(function () use ($userId, $dto) {
+            $created = $this->createRecord($userId, $dto);
+
+            // Tags: na transação, em todas as parcelas ou na primeira ocorrência (as próximas copiam).
+            if ($dto->tags !== []) {
+                $this->tags->syncFor(match (true) {
+                    $created instanceof Installment => Transaction::query()->where('installment_id', $created->id)->get(),
+                    $created instanceof RecurringTransaction => Transaction::query()->where('recurring_id', $created->id)->get(),
+                    default => [$created],
+                }, $userId, $dto->tags);
+            }
+
+            return $created;
+        });
+    }
+
+    private function createRecord(string $userId, StoreTransactionData $dto): Model
+    {
         if ($dto->is_installment) {
             return $this->installmentService->createInstallment($userId, $dto);
         }
@@ -106,8 +128,19 @@ class TransactionService implements ITransactionService
             $this->splits->sync($transaction, $parts['shares']);
             $this->balance->applyIfDue($transaction);
 
+            $following = [];
             if ($dto->apply_to_following && $transaction->installment_id !== null) {
                 $this->installmentService->updateFollowingParcels($transaction, $dto->amount, $dto->split);
+
+                $following = Transaction::query()
+                    ->where('installment_id', $transaction->installment_id)
+                    ->where('installment_number', '>', $transaction->installment_number)
+                    ->get()
+                    ->all();
+            }
+
+            if ($dto->tags !== null) {
+                $this->tags->syncFor([$transaction, ...$following], $transaction->user_id, $dto->tags);
             }
 
             return $transaction;

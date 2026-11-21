@@ -31,6 +31,7 @@ class TransactionController extends Controller
         $filters = $request->validate([
             'account_id' => ['nullable', 'uuid'],
             'category_id' => ['nullable', 'uuid'],
+            'tag_id' => ['nullable', 'uuid'],
             'type' => ['nullable', Rule::in(['income', 'expense'])],
             'month' => ['nullable', 'date_format:Y-m'],
             'all' => ['nullable', 'boolean'],

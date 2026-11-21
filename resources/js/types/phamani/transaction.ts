@@ -8,6 +8,7 @@ import type {
     SplitForm,
     TransactionSplit,
 } from './contact';
+import type { Tag } from './tag';
 
 export type TransactionType = 'income' | 'expense';
 
@@ -30,6 +31,7 @@ export interface InstallmentInfo {
 
 export interface Transaction {
     id: string;
+    tags?: Tag[];
     name: string;
     description: string | null;
     /** Sua parte (numa divisão) ou o valor inteiro. */
@@ -98,6 +100,8 @@ export interface TransactionFormData {
     auto_pay: boolean;
     is_recurring: boolean;
     frequency: RecurringFrequency;
+    /** Tags livres (nomes). */
+    tags: string[];
 }
 
 export type TransactionKind = 'split' | 'installment' | 'recurring' | 'shared';
@@ -105,6 +109,7 @@ export type TransactionKind = 'split' | 'installment' | 'recurring' | 'shared';
 export interface TransactionFilters {
     account_id?: string;
     category_id?: string;
+    tag_id?: string;
     type?: TransactionType;
     /** YYYY-MM (padrão: mês atual) */
     month?: string;

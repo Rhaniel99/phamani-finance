@@ -6,6 +6,7 @@ import { resolveEnumLabel } from '@/lib/enum-helpers';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { getNextTransactionDate } from '@/lib/transaction-dates';
 import { ContactAvatar } from '@/components/phamani/contact-avatar';
+import { TagChips } from '@/components/phamani/tag-input';
 import { useAuth } from '@/hooks/use-auth';
 import { useContacts } from '@/hooks/use-contacts';
 import { splitBreakdown } from '@/lib/split';
@@ -188,6 +189,10 @@ export function TransactionPreview({
                             <p className="text-xs text-[#8B7355]">
                                 {category?.name ?? 'Sem categoria'}
                             </p>
+                            <TagChips
+                                tags={data.tags.map((name) => ({ name }))}
+                                className="mt-1"
+                            />
                         </div>
                     </div>
 

@@ -19,6 +19,7 @@ import { InstallmentModal } from '@/components/phamani/modal/installment-modal';
 import { useEnums } from '@/hooks/use-enums';
 import { resolveEnumLabel } from '@/lib/enum-helpers';
 import { displayAmount, isThirdParty } from '@/lib/split';
+import { TagChips } from '@/components/phamani/tag-input';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { inbox } from '@/routes';
@@ -159,6 +160,10 @@ export function ShowTransactionDrawer({
                                 <p className="text-lg text-[#6B4E3D]">
                                     {transaction.name}
                                 </p>
+                                <TagChips
+                                    tags={transaction.tags}
+                                    className="mt-2"
+                                />
                             </div>
 
                             <div className="flex-1 space-y-8 overflow-y-auto p-8">
