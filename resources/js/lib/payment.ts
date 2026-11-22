@@ -45,3 +45,37 @@ export function payerName(t: Transaction): string | null {
 
     return t.paid_by?.name ?? null;
 }
+
+/**
+ * Quando o dinheiro sai: compra no cartão = dia em que a fatura foi paga ou, se ainda não foi,
+ * o vencimento (também na cópia de quem dividiu); o resto = a própria data.
+ */
+export function paymentDate(t: Transaction): string {
+    const invoice = t.invoice ?? t.mirrored_from?.invoice;
+
+    return (invoice?.paid_at ?? invoice?.due_date ?? t.date).slice(0, 10);
+}
+
+/** Fatura da compra (a sua ou a da original, na cópia). null = não é de cartão. */
+export function invoiceOf(
+    t: Transaction,
+): { key: string; label: string } | null {
+    if (t.invoice) {
+        return {
+            key: t.invoice.id,
+            label: `Fatura ${t.account?.name ?? ''}`.trim(),
+        };
+    }
+
+    const source = t.mirrored_from;
+    if (source?.invoice) {
+        const card = source.account?.name ?? 'cartão';
+        const owner = source.user?.name;
+        return {
+            key: source.invoice.id,
+            label: owner ? `Fatura ${card} (${owner})` : `Fatura ${card}`,
+        };
+    }
+
+    return null;
+}

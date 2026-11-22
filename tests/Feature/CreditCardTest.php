@@ -174,6 +174,7 @@ class CreditCardTest extends TestCase
         $this->assertEquals(5000.0, $this->summary($card)['available']);
 
         // A despesa do mês continua sendo a compra (333,75), não compra + pagamento.
+        // Fatura paga em 18/11: o dinheiro saiu em novembro, então a compra conta em novembro.
         $this->actingAs($this->user)
             ->get(route('dashboard'))
             ->assertInertia(fn (Assert $page) => $page
@@ -310,13 +311,17 @@ class CreditCardTest extends TestCase
         $transaction = Transaction::firstOrFail();
         $invoice = CreditCardInvoice::firstOrFail();
 
-        // Não nasce paga e não fica "atrasada".
+        // Não nasce paga e não fica "atrasada". Pela visão "por pagamento", a compra de 02/11
+        // aparece em dezembro (fatura vence 05/12).
         $this->assertNull($transaction->paid_at);
         $this->actingAs($this->user)
-            ->get(route('transactions.index', ['status' => 'overdue']))
+            ->get(route('transactions.index', ['status' => 'overdue', 'month' => '2026-12']))
             ->assertInertia(fn (Assert $page) => $page->has('transactions.data', 0));
         $this->actingAs($this->user)
-            ->get(route('transactions.index', ['status' => 'pending']))
+            ->get(route('transactions.index', ['status' => 'pending', 'month' => '2026-12']))
+            ->assertInertia(fn (Assert $page) => $page->has('transactions.data', 1));
+        $this->actingAs($this->user)
+            ->get(route('transactions.index', ['status' => 'pending', 'view' => 'purchase']))
             ->assertInertia(fn (Assert $page) => $page->has('transactions.data', 1));
 
         $this->actingAs($this->user)
