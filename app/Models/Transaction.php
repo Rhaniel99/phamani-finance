@@ -96,6 +96,29 @@ class Transaction extends BaseModel
             ->orWhereIn('mirrored_from_id', self::query()->select('id')->whereIn('account_id', $credit)));
     }
 
+    /**
+     * Data em que o dinheiro sai: compra no cartão = dia em que a fatura foi paga ou, se ainda não foi,
+     * o vencimento (também para a cópia de quem dividiu); o resto = a própria data.
+     * Expressão SQL (SQLite e Postgres).
+     */
+    public static function paymentDateSql(): string
+    {
+        return 'date(COALESCE('
+            .'(select COALESCE(ci.paid_at, ci.due_date) from credit_card_invoices ci where ci.id = transactions.invoice_id), '
+            .'(select COALESCE(si.paid_at, si.due_date) from transactions s inner join credit_card_invoices si on si.id = s.invoice_id where s.id = transactions.mirrored_from_id), '
+            .'transactions.date))';
+    }
+
+    /**
+     * Pela data em que o dinheiro sai (ver paymentDateSql), entre $start e $end (Y-m-d).
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopePaidBetween(Builder $query, string $start, string $end): void
+    {
+        $query->whereRaw(self::paymentDateSql().' between ? and ?', [$start, $end]);
+    }
+
     /** @return BelongsTo<Account, $this> */
     public function account(): BelongsTo
     {

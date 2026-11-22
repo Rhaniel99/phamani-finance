@@ -72,10 +72,10 @@ export interface MirrorSource {
     user_id: string;
     account_id?: string | null;
     /** Só o tipo: diz se a original está num cartão (status "na fatura"). */
-    account?: { id: string; type: string } | null;
+    account?: { id: string; name?: string; type: string } | null;
     date?: string;
     invoice_id?: string | null;
-    invoice?: { id: string; due_date: string } | null;
+    invoice?: { id: string; due_date: string; paid_at?: string | null } | null;
     total_amount: string | number | null;
     paid_by_contact_id: string | null;
     user?: { id: string; name: string; avatar?: string | null } | null;

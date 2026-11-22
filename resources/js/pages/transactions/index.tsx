@@ -4,6 +4,7 @@ import {
     ChevronDown,
     ChevronLeft,
     ChevronRight,
+    CreditCard,
     Plus,
     Search,
     X,
@@ -26,7 +27,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useTags } from '@/hooks/use-tags';
 import { formatCurrency, formatMonth, today } from '@/lib/format';
-import { canMarkPaid, paymentStatus } from '@/lib/payment';
+import {
+    canMarkPaid,
+    invoiceOf,
+    paymentDate,
+    paymentStatus,
+} from '@/lib/payment';
 import {
     displayAmount,
     isFullyReimbursed,
@@ -111,21 +117,68 @@ function dayLabel(date: string): string {
     return label.charAt(0).toUpperCase() + label.slice(1).replace(/\./g, '');
 }
 
-function groupByDay(items: Transaction[]) {
-    const groups: Array<{ date: string; items: Transaction[]; net: number }> =
+type ListEntry =
+    | { kind: 'row'; transaction: Transaction }
+    | {
+          kind: 'invoice';
+          key: string;
+          label: string;
+          items: Transaction[];
+          total: number;
+      };
+
+/**
+ * Agrupa por dia. "Por pagamento": compra no cartão vai para o dia em que a fatura vence
+ * e as compras de uma mesma fatura viram um bloco só (que abre para mostrar as compras).
+ */
+function groupByDay(items: Transaction[], byPayment: boolean) {
+    const dateOf = (t: Transaction) =>
+        byPayment ? paymentDate(t) : t.date.slice(0, 10);
+
+    // Ordem estável: mais recente primeiro, mantendo a ordem do servidor no empate.
+    const sorted = items
+        .map((t, i) => ({ t, i }))
+        .sort((a, b) =>
+            dateOf(a.t) === dateOf(b.t)
+                ? a.i - b.i
+                : dateOf(a.t) < dateOf(b.t)
+                  ? 1
+                  : -1,
+        )
+        .map(({ t }) => t);
+
+    const groups: Array<{ date: string; entries: ListEntry[]; net: number }> =
         [];
 
-    for (const t of items) {
-        const date = t.date.slice(0, 10);
+    for (const t of sorted) {
+        const date = dateOf(t);
         let group = groups.at(-1);
 
         if (!group || group.date !== date) {
-            group = { date, items: [], net: 0 };
+            group = { date, entries: [], net: 0 };
             groups.push(group);
         }
 
-        group.items.push(t);
-        group.net += (t.type === 'income' ? 1 : -1) * Number(t.amount);
+        const signed = (t.type === 'income' ? 1 : -1) * Number(t.amount);
+        group.net += signed;
+
+        const invoice = byPayment ? invoiceOf(t) : null;
+        if (!invoice) {
+            group.entries.push({ kind: 'row', transaction: t });
+            continue;
+        }
+
+        let block = group.entries.find(
+            (e) => e.kind === 'invoice' && e.key === invoice.key,
+        );
+        if (!block) {
+            block = { kind: 'invoice', ...invoice, items: [], total: 0 };
+            group.entries.push(block);
+        }
+        if (block.kind === 'invoice') {
+            block.items.push(t);
+            block.total += -signed;
+        }
     }
 
     return groups;
@@ -228,7 +281,8 @@ export default function TransactionsIndex({
         filters.kind ||
         filters.status
     );
-    const groups = groupByDay(list.items);
+    const byPayment = !isAll && filters.view !== 'purchase';
+    const groups = groupByDay(list.items, byPayment);
 
     return (
         <>
@@ -300,25 +354,73 @@ export default function TransactionsIndex({
                         )}
                     </div>
 
-                    <button
-                        type="button"
-                        onClick={() =>
-                            visit({
-                                ...filters,
-                                all: isAll ? undefined : '1',
-                                month: isAll ? currentMonth() : undefined,
-                            })
-                        }
-                        aria-pressed={isAll}
-                        className={cn(
-                            'rounded-2xl border px-4 py-2 text-sm font-medium transition-colors',
-                            isAll
-                                ? 'border-[#3D2817] bg-[#3D2817] text-[#F5EFE6]'
-                                : 'border-[#E8DCC4] bg-white text-[#3D2817] hover:bg-[#FBF7F1]',
+                    <div className="flex flex-wrap items-center gap-2">
+                        {!isAll && (
+                            <div
+                                role="group"
+                                aria-label="Ver o mês"
+                                className="flex rounded-2xl border border-[#E8DCC4] bg-white p-1 text-sm"
+                            >
+                                {(
+                                    [
+                                        ['payment', 'Por pagamento'],
+                                        ['purchase', 'Por compra'],
+                                    ] as const
+                                ).map(([value, label]) => {
+                                    const active =
+                                        (filters.view ?? 'payment') === value;
+                                    return (
+                                        <button
+                                            key={value}
+                                            type="button"
+                                            aria-pressed={active}
+                                            title={
+                                                value === 'payment'
+                                                    ? 'Mês em que o dinheiro sai: compras no cartão entram no mês da fatura'
+                                                    : 'Pela data da compra'
+                                            }
+                                            onClick={() =>
+                                                visit({
+                                                    ...filters,
+                                                    view:
+                                                        value === 'payment'
+                                                            ? undefined
+                                                            : value,
+                                                })
+                                            }
+                                            className={cn(
+                                                'rounded-xl px-3 py-1.5 font-medium transition-colors',
+                                                active
+                                                    ? 'bg-[#3D2817] text-[#F5EFE6]'
+                                                    : 'text-[#6B4E3D] hover:bg-[#FBF7F1]',
+                                            )}
+                                        >
+                                            {label}
+                                        </button>
+                                    );
+                                })}
+                            </div>
                         )}
-                    >
-                        Todo o período
-                    </button>
+                        <button
+                            type="button"
+                            onClick={() =>
+                                visit({
+                                    ...filters,
+                                    all: isAll ? undefined : '1',
+                                    month: isAll ? currentMonth() : undefined,
+                                })
+                            }
+                            aria-pressed={isAll}
+                            className={cn(
+                                'rounded-2xl border px-4 py-2 text-sm font-medium transition-colors',
+                                isAll
+                                    ? 'border-[#3D2817] bg-[#3D2817] text-[#F5EFE6]'
+                                    : 'border-[#E8DCC4] bg-white text-[#3D2817] hover:bg-[#FBF7F1]',
+                            )}
+                        >
+                            Todo o período
+                        </button>
+                    </div>
                 </div>
 
                 {/* Resumo do mês */}
@@ -542,16 +644,33 @@ export default function TransactionsIndex({
                                     </span>
                                 </div>
                                 <ul className="divide-y divide-[#E8DCC4] overflow-hidden rounded-3xl border border-[#E8DCC4] bg-white shadow-sm">
-                                    {group.items.map((t) => (
-                                        <TransactionRow
-                                            key={t.id}
-                                            transaction={t}
-                                            scheduled={
-                                                t.date.slice(0, 10) > todayStr
-                                            }
-                                            onClick={() => setSelected(t)}
-                                        />
-                                    ))}
+                                    {group.entries.map((entry) =>
+                                        entry.kind === 'row' ? (
+                                            <TransactionRow
+                                                key={entry.transaction.id}
+                                                transaction={entry.transaction}
+                                                scheduled={
+                                                    group.date > todayStr
+                                                }
+                                                onClick={() =>
+                                                    setSelected(
+                                                        entry.transaction,
+                                                    )
+                                                }
+                                            />
+                                        ) : (
+                                            <InvoiceBlock
+                                                key={entry.key}
+                                                label={entry.label}
+                                                items={entry.items}
+                                                total={entry.total}
+                                                scheduled={
+                                                    group.date > todayStr
+                                                }
+                                                onSelect={setSelected}
+                                            />
+                                        ),
+                                    )}
                                 </ul>
                             </section>
                         ))}
@@ -598,6 +717,76 @@ export default function TransactionsIndex({
                 />
             </div>
         </>
+    );
+}
+
+/**
+ * Bloco de uma fatura dentro do dia do vencimento ("por pagamento").
+ * Fechado mostra o total da fatura; aberto lista as compras.
+ */
+function InvoiceBlock({
+    label,
+    items,
+    total,
+    scheduled,
+    onSelect,
+}: {
+    label: string;
+    items: Transaction[];
+    total: number;
+    scheduled: boolean;
+    onSelect: (t: Transaction) => void;
+}) {
+    const [open, setOpen] = useState(false);
+
+    return (
+        <li>
+            <button
+                type="button"
+                onClick={() => setOpen((v) => !v)}
+                aria-expanded={open}
+                className="flex w-full items-center gap-4 px-6 py-4 text-left transition-colors hover:bg-[#FBF7F1]"
+            >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#3D2817] text-[#F5EFE6]">
+                    <CreditCard className="h-5 w-5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                    <span className="block truncate font-bold text-[#3D2817]">
+                        {label}
+                    </span>
+                    <span className="text-xs text-[#8B7355]">
+                        {items.length}{' '}
+                        {items.length === 1 ? 'compra' : 'compras'} ·{' '}
+                        {(items[0].invoice ?? items[0].mirrored_from?.invoice)
+                            ?.paid_at
+                            ? 'paga neste dia'
+                            : 'vence neste dia'}{' '}
+                        · {open ? 'esconder' : 'ver compras'}
+                    </span>
+                </span>
+                <span className="text-sm font-bold text-[#3D2817]">
+                    - {formatCurrency(total)}
+                </span>
+                <ChevronDown
+                    className={cn(
+                        'h-4 w-4 shrink-0 text-[#8B7355] transition-transform',
+                        open && 'rotate-180',
+                    )}
+                />
+            </button>
+            {open && (
+                <ul className="divide-y divide-[#F0E8D8] border-t border-[#E8DCC4] bg-[#FDFBF7]">
+                    {items.map((t) => (
+                        <TransactionRow
+                            key={t.id}
+                            transaction={t}
+                            scheduled={scheduled}
+                            onClick={() => onSelect(t)}
+                        />
+                    ))}
+                </ul>
+            )}
+        </li>
     );
 }
 

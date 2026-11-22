@@ -56,12 +56,19 @@ class TransactionRepository extends CoreRepository implements ITransactionReposi
             ->when($filters['category_id'] ?? null, fn ($q, $id) => $q->where('category_id', $id))
             ->when($filters['tag_id'] ?? null, fn ($q, $id) => $q->whereHas('tags', fn ($t) => $t->whereKey($id)))
             ->when($filters['type'] ?? null, fn ($q, $type) => $q->where('type', $type))
-            ->when($filters['month'] ?? null, function ($q, string $month) {
+            ->when($filters['month'] ?? null, function ($q, string $month) use ($filters) {
                 $start = CarbonImmutable::createFromFormat('!Y-m', $month);
+                [$from, $to] = [$start->startOfMonth()->toDateString(), $start->endOfMonth()->toDateString()];
 
-                // whereDate: compara só a data em qualquer banco (inclui o último dia do mês).
-                $q->whereDate('date', '>=', $start->startOfMonth()->toDateString())
-                    ->whereDate('date', '<=', $start->endOfMonth()->toDateString());
+                // Padrão "por pagamento": compra no cartão entra no mês em que a fatura vence.
+                if (($filters['view'] ?? 'payment') === 'payment') {
+                    $q->paidBetween($from, $to);
+
+                    return;
+                }
+
+                // "Por compra": pela data. whereDate compara só a data em qualquer banco.
+                $q->whereDate('date', '>=', $from)->whereDate('date', '<=', $to);
             })
             ->when($filters['search'] ?? null, function ($q, string $search) {
                 $term = '%'.mb_strtolower(trim($search)).'%';
@@ -96,17 +103,21 @@ class TransactionRepository extends CoreRepository implements ITransactionReposi
     public function summaryForUser(string $userId, array $filters): array
     {
         $today = now()->toDateString();
+        $byPayment = ($filters['view'] ?? 'payment') === 'payment';
 
         $income = (float) $this->filtered($userId, $filters)->where('type', 'income')->sum('amount');
         $expense = (float) $this->filtered($userId, $filters)->where('type', 'expense')->sum('amount');
-        // Não pagas (cartão fica de fora: a dívida está na fatura).
+
+        // Não pagas. Por pagamento: a compra no cartão vence com a fatura e entra em "a vencer".
+        // Por compra: o cartão fica de fora (a dívida está na fatura).
         $unpaid = fn () => $this->filtered($userId, $filters)
             ->where('type', 'expense')
             ->whereNull('paid_at')
-            ->notOnCard();
+            ->when(! $byPayment, fn ($q) => $q->notOnCard());
 
-        $due = $unpaid()->whereDate('date', '>=', $today);
-        $overdue = $unpaid()->whereDate('date', '<', $today);
+        $when = $byPayment ? Transaction::paymentDateSql() : 'date(transactions.date)';
+        $due = $unpaid()->whereRaw("{$when} >= ?", [$today]);
+        $overdue = $unpaid()->whereRaw("{$when} < ?", [$today]);
 
         return [
             'income' => round($income, 2),
@@ -139,6 +150,8 @@ class TransactionRepository extends CoreRepository implements ITransactionReposi
     {
         return [
             'account:id,name,type',
+            // Fatura (vencimento): a lista "por pagamento" agrupa as compras do cartão por fatura.
+            'invoice:id,account_id,due_date,paid_at',
             'category:id,name,color,icon',
             'splits:id,transaction_id,contact_id,amount,reimbursed_at,reimbursement_account_id,reimbursed_amount,tracked,settlement_id',
             'splits.settlement:id,status',
@@ -147,8 +160,8 @@ class TransactionRepository extends CoreRepository implements ITransactionReposi
             'tags:id,name',
             'paidBy:id,name,linked_user_id',
             'mirroredFrom:id,user_id,account_id,invoice_id,date,total_amount,paid_by_contact_id',
-            'mirroredFrom.account:id,type',
-            'mirroredFrom.invoice:id,due_date',
+            'mirroredFrom.account:id,name,type',
+            'mirroredFrom.invoice:id,due_date,paid_at',
             'mirroredFrom.user:id,name,avatar',
             'mirroredFrom.paidBy:id,name,linked_user_id',
             'mirroredFrom.splits:id,transaction_id,contact_id,amount,tracked,reimbursed_at,settlement_id',

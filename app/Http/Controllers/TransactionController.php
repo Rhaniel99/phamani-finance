@@ -38,6 +38,8 @@ class TransactionController extends Controller
             'search' => ['nullable', 'string', 'max:100'],
             'kind' => ['nullable', Rule::in(['split', 'installment', 'recurring', 'shared'])],
             'status' => ['nullable', Rule::in(['paid', 'pending', 'overdue'])],
+            // payment (padrão) = mês em que o dinheiro sai (cartão pela fatura); purchase = pela data.
+            'view' => ['nullable', Rule::in(['payment', 'purchase'])],
         ]);
 
         // Padrão: um mês por vez (o atual). "Todo o período" só com all=1.
@@ -48,9 +50,15 @@ class TransactionController extends Controller
             $filters['month'] ??= now()->format('Y-m');
         }
         unset($filters['all']);
+        $filters['view'] ??= 'payment';
 
         return Inertia::render('transactions/index', [
-            'filters' => (object) array_filter([...$filters, 'all' => $all ? '1' : null]),
+            'filters' => (object) array_filter([
+                ...$filters,
+                'all' => $all ? '1' : null,
+                // O padrão não precisa ir na URL.
+                'view' => ($filters['view'] ?? 'payment') === 'payment' ? null : $filters['view'],
+            ]),
             // Um mês cabe inteiro; "todo o período" vem em páginas de 50 ("carregar mais").
             'transactions' => fn () => $this->service->paginateForUser($userId, $filters, $all ? 50 : 500),
             'summary' => fn () => $all ? null : $this->service->summaryForUser($userId, $filters),

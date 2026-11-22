@@ -125,13 +125,19 @@ class DashboardService implements IDashboardService
      *
      * @return Collection<int, object{date: string, type: string, total: string}>
      */
+    /**
+     * Fluxo de caixa: pela data em que o dinheiro sai (compra no cartão no vencimento da fatura).
+     * O gráfico de categorias continua pela data da compra ("com o que gastei").
+     */
     protected function totalsByDate(string $userId, CarbonInterface $start, CarbonInterface $end): Collection
     {
+        $payDate = Transaction::paymentDateSql();
+
         return Transaction::query()
             ->where('user_id', $userId)
-            ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
-            ->groupBy('date', 'type')
-            ->selectRaw('date, type, SUM(amount) as total')
+            ->paidBetween($start->toDateString(), $end->toDateString())
+            ->groupByRaw("{$payDate}, type")
+            ->selectRaw("{$payDate} as date, type, SUM(amount) as total")
             ->toBase()
             ->get();
     }
@@ -166,12 +172,16 @@ class DashboardService implements IDashboardService
             ->sum('balance');
     }
 
+    /**
+     * Total do mês pela data em que o dinheiro sai (compra no cartão conta no mês da fatura),
+     * igual à lista de transações.
+     */
     protected function monthlyTotal(string $userId, string $type, CarbonImmutable $month): float
     {
         return (float) Transaction::query()
             ->where('user_id', $userId)
             ->where('type', $type)
-            ->whereBetween('date', [$month->startOfMonth()->toDateString(), $month->endOfMonth()->toDateString()])
+            ->paidBetween($month->startOfMonth()->toDateString(), $month->endOfMonth()->toDateString())
             ->sum('amount');
     }
 

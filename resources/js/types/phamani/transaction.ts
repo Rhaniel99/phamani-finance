@@ -62,6 +62,13 @@ export interface Transaction {
     /** null quando outra pessoa pagou */
     account_id: string | null;
     account?: Pick<Account, 'id' | 'name' | 'type'>;
+    /** Fatura da compra no cartão (vencimento = quando o dinheiro sai). */
+    invoice?: {
+        id: string;
+        account_id: string;
+        due_date: string;
+        paid_at?: string | null;
+    } | null;
 
     installment_id: string | null;
     installment_number: number | null;
@@ -109,6 +116,8 @@ export interface TransactionFormData {
 export type TransactionKind = 'split' | 'installment' | 'recurring' | 'shared';
 
 export interface TransactionFilters {
+    /** payment (padrão) = mês em que o dinheiro sai; purchase = pela data da compra. */
+    view?: 'payment' | 'purchase';
     account_id?: string;
     category_id?: string;
     tag_id?: string;
