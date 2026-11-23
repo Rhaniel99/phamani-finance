@@ -42,6 +42,13 @@ class AcceptImportLineData extends Data
         public ?string $split = null,
 
         public ?string $split_contact_id = null,
+
+        /** Parcelado: parcela que está nesta fatura (ex.: 1) e total de parcelas (ex.: 4). */
+        #[Min(1), Max(360)]
+        public ?int $installment_number = null,
+
+        #[Min(2), Max(360)]
+        public ?int $installments_count = null,
     ) {}
 
     /**

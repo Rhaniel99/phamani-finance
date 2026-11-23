@@ -55,6 +55,9 @@ interface RowState {
     split: Split;
     contact: string;
     amount: number;
+    /** Parcelado: parcela desta fatura e total (0 = à vista). */
+    installmentNumber: number;
+    installmentsCount: number;
     touched: boolean;
 }
 
@@ -88,6 +91,8 @@ function defaultRow(line: ImportLine): RowState {
         split: '',
         contact: '',
         amount: Math.abs(line.net),
+        installmentNumber: line.installment?.number ?? 1,
+        installmentsCount: line.installment?.count ?? 0,
         touched: false,
     };
 }
@@ -318,6 +323,14 @@ function Review({
         return [...ids];
     }, [groups.matched, rows]);
 
+    // Parcelas que vão para as próximas faturas.
+    const futureParcels = launched.reduce((sum, l) => {
+        const row = rows[l.index];
+        return row && row.installmentsCount >= 2 && l.kind !== 'refund'
+            ? sum + Math.max(0, row.installmentsCount - row.installmentNumber)
+            : sum;
+    }, 0);
+
     const statementTotal = review.sections.reduce(
         (sum, s) => sum + (s.total ?? s.sum),
         0,
@@ -376,6 +389,13 @@ function Review({
             if (!row.name.trim()) missing[line.index] = 'Dê um nome.';
             if (row.split && !row.contact)
                 missing[line.index] = 'Escolha com quem dividir.';
+            if (
+                row.installmentsCount >= 2 &&
+                (row.installmentNumber < 1 ||
+                    row.installmentNumber > row.installmentsCount)
+            )
+                missing[line.index] =
+                    'A parcela atual precisa estar entre 1 e o total de parcelas.';
         }
         if (Object.keys(missing).length > 0) {
             setErrors(missing);
@@ -405,6 +425,12 @@ function Review({
                         tags: row.tags,
                         split: row.split || null,
                         split_contact_id: row.split ? row.contact : null,
+                        ...(row.installmentsCount >= 2 && l.kind !== 'refund'
+                            ? {
+                                  installment_number: row.installmentNumber,
+                                  installments_count: row.installmentsCount,
+                              }
+                            : {}),
                     };
                 }),
             },
@@ -494,6 +520,27 @@ function Review({
                             banco: alguma linha foi lida errada ou ficou de
                             fora. Confira os valores marcados.
                         </p>
+                    )}
+                    {review.unparsed.length > 0 && (
+                        <details className="mt-3 rounded-2xl border border-[#E8DCC4] bg-white p-3">
+                            <summary className="cursor-pointer text-sm font-bold text-[#8A6100]">
+                                {review.unparsed.length}{' '}
+                                {review.unparsed.length === 1
+                                    ? 'linha com valor que não consegui entender'
+                                    : 'linhas com valor que não consegui entender'}{' '}
+                                — lance à mão se for compra
+                            </summary>
+                            <ul className="mt-2 space-y-1">
+                                {review.unparsed.map((raw, i) => (
+                                    <li
+                                        key={i}
+                                        className="font-mono text-xs text-[#6B4E3D]"
+                                    >
+                                        {raw}
+                                    </li>
+                                ))}
+                            </ul>
+                        </details>
                     )}
                 </div>
 
@@ -613,6 +660,13 @@ function Review({
                         value={formatCurrency(invoiceNow + launchTotal)}
                         strong
                     />
+                    {futureParcels > 0 && (
+                        <p className="mt-2 text-xs text-[#6B4E3D]">
+                            + {futureParcels}{' '}
+                            {futureParcels === 1 ? 'parcela' : 'parcelas'} nas
+                            próximas faturas.
+                        </p>
+                    )}
                     {reconcile.length > 0 && (
                         <p className="mt-2 text-xs text-[#6B4E3D]">
                             {reconcile.length} já cadastrada
@@ -861,6 +915,12 @@ function LineRow({
                     </Badge>
                 )}
                 {credit && <Badge tone="info">crédito (abate da fatura)</Badge>}
+                {!credit && row.installmentsCount >= 2 && (
+                    <Badge tone="info">
+                        parcela {row.installmentNumber}/{row.installmentsCount}
+                        {line.installment ? ' (do extrato)' : ''}
+                    </Badge>
+                )}
                 {row.split && (
                     <Badge tone="info">
                         {row.split === 'half'
@@ -918,6 +978,74 @@ function LineRow({
                                         </option>
                                     ))}
                                 </select>
+                            )}
+                        </div>
+                    )}
+                    {!credit && (
+                        <div className="md:col-span-2">
+                            <label className="flex items-center gap-2 text-sm font-bold text-[#3D2817]">
+                                <input
+                                    type="checkbox"
+                                    checked={row.installmentsCount >= 2}
+                                    onChange={(e) =>
+                                        onChange(
+                                            e.target.checked
+                                                ? {
+                                                      installmentNumber: 1,
+                                                      installmentsCount: 2,
+                                                  }
+                                                : { installmentsCount: 0 },
+                                        )
+                                    }
+                                    className="h-4 w-4 accent-[#3D2817]"
+                                />
+                                Compra parcelada
+                            </label>
+                            {row.installmentsCount >= 2 && (
+                                <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-[#6B4E3D]">
+                                    <span>Esta é a parcela</span>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        max={row.installmentsCount}
+                                        value={row.installmentNumber}
+                                        onChange={(e) =>
+                                            onChange({
+                                                installmentNumber: Number(
+                                                    e.target.value,
+                                                ),
+                                            })
+                                        }
+                                        className={cn(inputClass, 'w-20')}
+                                        aria-label="Parcela atual"
+                                    />
+                                    <span>de</span>
+                                    <input
+                                        type="number"
+                                        min={2}
+                                        max={360}
+                                        value={row.installmentsCount}
+                                        onChange={(e) =>
+                                            onChange({
+                                                installmentsCount: Math.max(
+                                                    2,
+                                                    Number(e.target.value),
+                                                ),
+                                            })
+                                        }
+                                        className={cn(inputClass, 'w-20')}
+                                        aria-label="Total de parcelas"
+                                    />
+                                    <span className="text-xs text-[#8B7355]">
+                                        {formatCurrency(row.amount)} por parcela
+                                        · total{' '}
+                                        {formatCurrency(
+                                            row.amount * row.installmentsCount,
+                                        )}
+                                        {row.installmentNumber > 1 &&
+                                            ` · lança da ${row.installmentNumber}ª à ${row.installmentsCount}ª`}
+                                    </span>
+                                </div>
                             )}
                         </div>
                     )}

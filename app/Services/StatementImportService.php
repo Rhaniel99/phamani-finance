@@ -14,6 +14,7 @@ use App\Interfaces\Services\ITransactionService;
 use App\Jobs\ProcessStatementImport;
 use App\Models\Account;
 use App\Models\CreditCardInvoice;
+use App\Models\Installment;
 use App\Models\MerchantRule;
 use App\Models\StatementImport;
 use App\Models\Transaction;
@@ -157,6 +158,7 @@ class StatementImportService implements IStatementImportService
                 'corrected' => $line['corrected'] ?? false,
                 'uncertain' => $line['uncertain'] ?? false,
                 'candidates' => $line['candidates'] ?? [],
+                'installment' => $line['installment'] ?? null,
                 'suggestion' => $this->suggester->suggest($line['description'], $rules),
                 'match' => null,
             ];
@@ -219,6 +221,7 @@ class StatementImportService implements IStatementImportService
                 'diff' => $s['total'] === null ? null : round((float) $s['total'] - (float) $s['sum'], 2),
             ], $result['sections']),
             'lines' => $lines,
+            'unparsed' => array_values(array_map(fn (array $u) => $u['raw'], $result['unparsed'] ?? [])),
             'existing' => $existing,
         ];
     }
@@ -247,8 +250,10 @@ class StatementImportService implements IStatementImportService
                 }
                 $seen[$line->index] = true;
 
-                /** @var Transaction $transaction */
-                $transaction = $this->transactions->create($import->user_id, new StoreTransactionData(
+                $count = $line->type === 'expense' ? $line->installments_count : null;
+                $number = $count !== null ? max(1, min((int) $line->installment_number, $count)) : 1;
+
+                $record = $this->transactions->create($import->user_id, new StoreTransactionData(
                     description: $line->name,
                     amount: round($line->amount, 2),
                     type: $line->type,
@@ -256,11 +261,22 @@ class StatementImportService implements IStatementImportService
                     account_id: $card->id,
                     // Lançamento atrasado (ex.: compra de setembro que só entrou agora): entra na fatura escolhida.
                     date: $this->clamp($line->date, $start, $closing),
+                    // Parcelado: o valor do extrato é o da parcela; lança da parcela atual em diante
+                    // (as anteriores já foram pagas em faturas passadas).
+                    is_installment: $count !== null,
+                    installments_count: $count,
+                    installment_start: $number,
+                    amount_mode: 'installment',
                     split: $this->split($line),
                     tags: $line->tags,
                 ));
 
-                $transaction->forceFill(['reconciled_at' => now()])->saveQuietly();
+                // Conferida: só a parcela desta fatura (as próximas ainda não vieram).
+                $transaction = $record instanceof Installment
+                    ? Transaction::query()->where('installment_id', $record->id)->where('installment_number', $number)->first()
+                    : $record;
+
+                $transaction?->forceFill(['reconciled_at' => now()])->saveQuietly();
                 $created++;
             }
 

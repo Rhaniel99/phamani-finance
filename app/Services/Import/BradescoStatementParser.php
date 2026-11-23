@@ -19,6 +19,9 @@ namespace App\Services\Import;
  */
 class BradescoStatementParser
 {
+    /** Valor com 2 casas decimais (vírgula ou ponto), com sinal opcional. */
+    private const MONEY = '/-?\s?\.?(?:\d{1,3}(?:[.\s]\d{3})+|\d+)[.,]\d{2}(?!\d)/u';
+
     private const JUNK = '\s|§©®=+\'"‘’“”`´.,:;~_\-—–!*\[\](){}<>¢$';
 
     /**
@@ -26,7 +29,8 @@ class BradescoStatementParser
      * @return array{
      *     statement_date: string|null,
      *     sections: list<array{label: string, last4: string|null, total: float|null, sum: float, ok: bool}>,
-     *     lines: list<array{index: int, band: int, section: int, raw: string, day: int, month: int, date: string|null, date_ok: bool, description: string, amount: float, kind: string, pair: int|null, deduction: float}>
+     *     lines: list<array{index: int, band: int, section: int, raw: string, day: int, month: int, date: string|null, date_ok: bool, description: string, amount: float, kind: string, pair: int|null, deduction: float, installment: array{number: int, count: int}|null}>,
+     *     unparsed: list<array{band: int, raw: string}>
      * }
      */
     public function parse(array $bands, ?string $fallbackDate = null): array
@@ -34,6 +38,7 @@ class BradescoStatementParser
         $statementDate = null;
         $sections = [];
         $lines = [];
+        $unparsed = [];
         $current = null;
 
         foreach ($bands as $band => $text) {
@@ -67,6 +72,11 @@ class BradescoStatementParser
 
                 $item = $this->item($raw);
                 if ($item === null) {
+                    // Tem valor mas não deu para entender: mostra na revisão para você lançar à mão.
+                    if (preg_match(self::MONEY, $raw)) {
+                        $unparsed[] = ['band' => (int) $band, 'raw' => $raw];
+                    }
+
                     continue;
                 }
 
@@ -92,43 +102,67 @@ class BradescoStatementParser
             'statement_date' => $statementDate,
             'sections' => $this->checkSections($sections, $lines),
             'lines' => $lines,
+            'unparsed' => $unparsed,
         ];
     }
 
     /**
      * Linha de lançamento: "dd/mm descrição ... R$ valor" (o último R$ da linha é o valor em reais).
      *
-     * @return array{day: int, month: int, description: string, amount: float, kind: string}|null
+     * @return array{day: int, month: int, description: string, amount: float, kind: string, installment: array{number: int, count: int}|null}|null
      */
     public function item(string $raw): ?array
     {
-        if (! preg_match('#^[^\dA-Za-z]*([\dSsOo]{1,2})\s*[/.]\s*(\d{2})\b(.*)$#u', $raw, $m)) {
+        // Data no começo (o OCR troca 0↔O, 1↔l/I, 5↔S).
+        if (! preg_match('#^[^\dA-Za-z]*([\dSsOoIl]{1,2})\s*[/.]\s*([\dOoIl]{2})\b(.*)$#u', $raw, $m)) {
             return null;
         }
 
-        if (! preg_match_all('/R\$\s*(-?\s*[\d.,\s]*\d)/u', $m[3], $values) || $values[1] === []) {
+        $rest = $m[3];
+
+        // Valores com 2 casas: "1.234,56", "-.114,90", "49.99". O "R$" não é exigido: o OCR às vezes
+        // lê "RS", "R§" ou nem lê. O valor em reais é o último da linha.
+        if (! preg_match_all(self::MONEY, $rest, $values, PREG_OFFSET_CAPTURE) || $values[0] === []) {
             return null;
         }
 
-        $amount = $this->amount((string) end($values[1]));
+        $last = end($values[0]);
+        $tail = substr($rest, $last[1] + strlen($last[0]));
+        if (preg_match('/[\p{L}\d]/u', $tail)) {
+            return null;
+        }
 
-        // Descrição: até a coluna "USD" (ou até o primeiro R$).
-        $description = preg_split('/\s+(?:USD|US\$|R\$)\s*-?[\d.,]/u', $m[3])[0] ?? '';
+        $amount = $this->amount($last[0]);
+
+        // Descrição: até o primeiro valor, sem as colunas de moeda ("USD", "usD", "R$", "RS"...).
+        $description = substr($rest, 0, $values[0][0][1]);
+        $description = preg_replace('/(?:\s+(?:u\s?s\s?[d$]|r\s?[$s§5]|u\$|\$))+\s*$/iu', '', $description) ?? $description;
         $description = $this->cleanDescription($description);
+
+        // Parcela no fim da descrição: "PARC 01/04", "PARCELA 2/10" ou só "01/04".
+        $installment = null;
+        if (preg_match('#\s+(?:PARC(?:ELA)?\.?\s*)?(\d{1,2})\s*/\s*(\d{1,2})$#iu', $description, $p)) {
+            $number = (int) $p[1];
+            $count = (int) $p[2];
+            if ($number >= 1 && $count >= 2 && $count <= 48 && $number <= $count) {
+                $installment = ['number' => $number, 'count' => $count];
+                $description = $this->cleanDescription(substr($description, 0, -strlen($p[0])));
+            }
+        }
 
         if ($description === '') {
             return null;
         }
 
-        $day = (int) strtr($m[1], ['S' => '5', 's' => '5', 'O' => '0', 'o' => '0']);
-        $month = (int) $m[2];
+        $digits = fn (string $s) => (int) strtr($s, ['S' => '5', 's' => '5', 'O' => '0', 'o' => '0', 'I' => '1', 'l' => '1']);
 
         return [
-            'day' => $day,
-            'month' => $month,
+            'day' => $digits($m[1]),
+            'month' => $digits($m[2]),
             'description' => $description,
             'amount' => $amount,
             'kind' => $this->kind($description, $amount),
+            'installment' => $installment,
         ];
     }
 
