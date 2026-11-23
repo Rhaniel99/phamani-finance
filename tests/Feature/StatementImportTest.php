@@ -283,6 +283,36 @@ class StatementImportTest extends TestCase
             ->assertSessionHasErrors('import');
     }
 
+    public function test_accept_launches_an_installment_from_the_current_parcel(): void
+    {
+        $import = $this->readyImport();
+
+        // Extrato mostra só a parcela (R$ 30,00); é a 2ª de 4.
+        $this->actingAs($this->user)
+            ->post(route('imports.accept', $import), [
+                'reference' => '2026-12-01',
+                'lines' => [
+                    ['index' => 0, 'name' => 'Consulta', 'amount' => 30.00, 'type' => 'expense', 'date' => '2026-11-17',
+                        'category_id' => $this->food->id, 'tags' => [], 'installment_number' => 2, 'installments_count' => 4],
+                ],
+            ])
+            ->assertSessionHasNoErrors();
+
+        $parcels = Transaction::query()->where('account_id', $this->card->id)->orderBy('installment_number')->with(['invoice', 'installment'])->get();
+
+        $this->assertSame([2, 3, 4], $parcels->pluck('installment_number')->all());
+        $this->assertSame(['30.00', '30.00', '30.00'], $parcels->pluck('amount')->all());
+        $this->assertSame('Consulta (2/4)', $parcels[0]->name);
+        $this->assertSame(
+            ['2026-12-01', '2027-01-01', '2027-02-01'],
+            $parcels->map(fn ($p) => $p->invoice?->reference_month->toDateString())->all(),
+        );
+        // Só a parcela desta fatura fica conferida.
+        $this->assertNotNull($parcels[0]->reconciled_at);
+        $this->assertNull($parcels[1]->reconciled_at);
+        $this->assertEquals(120.0, (float) $parcels[0]->installment?->total_amount);
+    }
+
     public function test_next_import_uses_the_learned_names_and_categories(): void
     {
         MerchantRule::create([

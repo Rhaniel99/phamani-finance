@@ -61,6 +61,8 @@ export interface ImportLine {
     corrected: boolean;
     uncertain: boolean;
     candidates: number[];
+    /** Parcela lida no extrato ("PARC 01/04"); null quando o banco não mostra. */
+    installment: { number: number; count: number } | null;
     suggestion: ImportSuggestion;
     match: ImportMatch | null;
 }
@@ -104,5 +106,7 @@ export interface ImportReview {
     invoice: { id: string; total: number; status: string } | null;
     sections: ImportSection[];
     lines: ImportLine[];
+    /** Linhas com valor que não deu para interpretar (lançar à mão). */
+    unparsed: string[];
     existing: ImportExisting[];
 }

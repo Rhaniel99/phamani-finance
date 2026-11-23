@@ -42,6 +42,38 @@ class BradescoStatementTest extends TestCase
         $this->assertSame('balance', $byDescription['SALDO ANTERIOR']['kind']);
     }
 
+    public function test_tolerates_ocr_variations_and_reads_installments(): void
+    {
+        $parser = new BradescoStatementParser;
+
+        // "R$" lido como "RS"/"R§" ou perdido, "USD" como "usD", mês "1l".
+        $this->assertSame(['IFD iFood', 12.90], $this->pick($parser->item('15/11 IFD iFood usD 0,00 RS 0,00 RS 12,90')));
+        $this->assertSame(['99Food Sabor do A a', 24.60], $this->pick($parser->item('30/10 99Food Sabor do A a usD 0,00 R§ 0,00 R§ 24,60')));
+        $this->assertSame(['DROGARIA SOFIA', 17.00], $this->pick($parser->item('17/11 DROGARIA SOFIA USD 0,00 0,00 17,00')));
+        $this->assertSame(11, $parser->item('06/1l Mercadinho USD 0.00 R$ 0.00 R$35,10 |')['month'] ?? null);
+
+        $parc = $parser->item('20/11 MAGAZINE LUIZA PARC 01/04 USD 0,00 R$ 0,00 R$ 35,10');
+        $this->assertSame('MAGAZINE LUIZA', $parc['description'] ?? null);
+        $this->assertSame(['number' => 1, 'count' => 4], $parc['installment'] ?? null);
+        $this->assertSame(['number' => 3, 'count' => 10], $parser->item('20/11 MERCADOLIVRE 3/10 USD 0,00 R$ 0,00 R$ 16,68')['installment'] ?? null);
+        $tim = $parser->item('12/11 TIM 11999990000 USD 0,00 R$ 0,00 R$ 49.99');
+        $this->assertNotNull($tim);
+        $this->assertNull($tim['installment']);
+
+        // Linha com valor que não dá para entender: vai para "unparsed".
+        $result = $parser->parse(['Data: 22/11/2026', 'X? MERCADO Y R$ 0,00 R$ 10,00']);
+        $this->assertSame(['X? MERCADO Y R$ 0,00 R$ 10,00'], array_column($result['unparsed'], 'raw'));
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $item
+     * @return array{mixed, mixed}
+     */
+    private function pick(?array $item): array
+    {
+        return [$item['description'] ?? null, $item['amount'] ?? null];
+    }
+
     public function test_infers_the_year_from_the_statement_date(): void
     {
         $parser = new BradescoStatementParser;
