@@ -75,7 +75,7 @@ class CreditCardService implements ICreditCardService
      *
      * @return array{closing_date: CarbonImmutable, due_date: CarbonImmutable}
      */
-    private function periodForReference(Account $card, CarbonInterface $referenceMonth): array
+    public function periodForReference(Account $card, CarbonInterface $referenceMonth): array
     {
         $dueMonth = CarbonImmutable::parse($referenceMonth->toDateString())->startOfMonth();
         $closingMonth = (int) $card->due_day > (int) $card->closing_day ? $dueMonth : $dueMonth->subMonthNoOverflow();

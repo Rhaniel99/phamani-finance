@@ -21,6 +21,8 @@ use App\Interfaces\Services\IRecurringTransactionService;
 use App\Interfaces\Services\IReimbursementService;
 use App\Interfaces\Services\ITagService;
 use App\Interfaces\Services\IShareService;
+use App\Interfaces\Services\IStatementImportService;
+use App\Interfaces\Services\IStatementOcr;
 use App\Interfaces\Services\ISplitService;
 use App\Interfaces\Services\ITransactionService;
 use App\Repositories\AccountRepository;
@@ -42,6 +44,8 @@ use App\Services\RecurringTransactionService;
 use App\Services\ReimbursementService;
 use App\Services\TagService;
 use App\Services\ShareService;
+use App\Services\Import\TesseractOcr;
+use App\Services\StatementImportService;
 use App\Services\SplitService;
 use App\Services\TransactionService;
 use Illuminate\Support\ServiceProvider;
@@ -69,6 +73,7 @@ class RepositoryServiceProvider extends ServiceProvider
         IReimbursementService::class => ReimbursementService::class,
         ITagService::class => TagService::class,
         IShareService::class => ShareService::class,
+        IStatementImportService::class => StatementImportService::class,
         ISplitService::class => SplitService::class,
         ITransactionService::class => TransactionService::class,
 
@@ -80,4 +85,12 @@ class RepositoryServiceProvider extends ServiceProvider
         IRecurringTransactionRepository::class => RecurringTransactionRepository::class,
         ITransactionRepository::class => TransactionRepository::class,
     ];
+
+    public function register(): void
+    {
+        // OCR: uma instância por importação (guarda as imagens entre a leitura e a releitura).
+        $this->app->bind(IStatementOcr::class, fn () => new TesseractOcr(
+            workers: (int) config('services.ocr.workers', 2),
+        ));
+    }
 }

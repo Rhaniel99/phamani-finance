@@ -8,6 +8,7 @@ use App\Interfaces\Services\ICategoryService;
 use App\Interfaces\Services\ICreditCardService;
 use App\Models\Account;
 use App\Models\CreditCardInvoice;
+use App\Models\StatementImport;
 use App\Models\Transaction;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -75,6 +76,20 @@ class CreditCardController extends Controller
                 ->orderByDesc('date')
                 ->orderByDesc('created_at')
                 ->get(),
+            // Importações de extrato ainda abertas (lendo ou esperando revisão).
+            'pendingImports' => fn () => StatementImport::query()
+                ->where('account_id', $account->id)
+                ->whereIn('status', ['queued', 'processing', 'ready', 'failed'])
+                ->latest()
+                ->limit(3)
+                ->get(['id', 'status', 'progress', 'statement_date', 'created_at'])
+                ->map(fn (StatementImport $i) => [
+                    'id' => $i->id,
+                    'status' => $i->status,
+                    'progress' => $i->progress,
+                    'statement_date' => $i->statement_date?->toDateString(),
+                    'created_at' => $i->created_at?->toDateString(),
+                ]),
             'accounts' => fn () => $this->accountService->listForUser($userId),
             'categories' => fn () => $this->categoryService->listForUser($userId),
         ]);

@@ -35,6 +35,11 @@ return [
         ],
     ],
 
+    // OCR do extrato do cartão: processos do Tesseract em paralelo (i3 de 2 núcleos → 2).
+    'ocr' => [
+        'workers' => (int) env('OCR_WORKERS', 2),
+    ],
+
     'google' => [
         'client_id' => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
