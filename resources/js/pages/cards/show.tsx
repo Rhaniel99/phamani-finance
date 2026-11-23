@@ -1,7 +1,8 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import {
     CalendarClock,
     Check,
+    FileScan,
     HandCoins,
     Pencil,
     Plus,
@@ -13,6 +14,7 @@ import { CategoryIcon } from '@/components/phamani/category-icon';
 import { DashboardHeader } from '@/components/phamani/dashboard/dashboard-header';
 import { CreateAccountDrawer } from '@/components/phamani/drawer/create-account-drawer';
 import { ShowTransactionDrawer } from '@/components/phamani/drawer/show-transaction-drawer';
+import { ImportStatementModal } from '@/components/phamani/modal/import-statement-modal';
 import { NewTransactionModal } from '@/components/phamani/modal/new-transaction-modal';
 import { Button } from '@/components/phamani/ui/button';
 import { formatCurrency, formatDate, formatMonth, today } from '@/lib/format';
@@ -20,6 +22,7 @@ import { isThirdParty, receivableSplits } from '@/lib/split';
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import { show as cardShow } from '@/routes/cards';
+import { show as importShow } from '@/routes/imports';
 import { reconcile } from '@/routes/transactions';
 import { pay as payInvoice, undo as undoPayment } from '@/routes/invoices';
 import { INVOICE_STATUS_LABELS } from '@/types/phamani';
@@ -38,7 +41,21 @@ interface CardPageProps {
     transactions: Transaction[];
     accounts: Account[];
     categories: Category[];
+    pendingImports?: {
+        id: string;
+        status: 'queued' | 'processing' | 'ready' | 'failed';
+        progress: number;
+        statement_date: string | null;
+        created_at: string | null;
+    }[];
 }
+
+const IMPORT_STATUS: Record<string, string> = {
+    queued: 'na fila',
+    processing: 'lendo',
+    ready: 'esperando sua revisão',
+    failed: 'não deu para ler',
+};
 
 const STATUS_STYLES: Record<InvoiceStatus, string> = {
     open: 'bg-[#E8DCC4] text-[#6B4E3D]',
@@ -53,9 +70,11 @@ export default function CardShow({
     transactions,
     accounts,
     categories,
+    pendingImports = [],
 }: CardPageProps) {
     const [editingCard, setEditingCard] = useState(false);
     const [newPurchaseOpen, setNewPurchaseOpen] = useState(false);
+    const [importOpen, setImportOpen] = useState(false);
     const [selected, setSelected] = useState<Transaction | null>(null);
     const [editing, setEditing] = useState<Transaction | null>(null);
 
@@ -105,6 +124,17 @@ export default function CardShow({
                                 </span>
                             </Button>
                             <Button
+                                variant="secondary"
+                                onClick={() => setImportOpen(true)}
+                                className="h-12"
+                                title="Importar extrato (PDF ou print)"
+                            >
+                                <FileScan className="h-5 w-5 md:mr-2" />
+                                <span className="hidden md:inline">
+                                    Importar extrato
+                                </span>
+                            </Button>
+                            <Button
                                 variant="primary"
                                 onClick={() => setNewPurchaseOpen(true)}
                                 className="h-12"
@@ -117,6 +147,38 @@ export default function CardShow({
                         </div>
                     }
                 />
+
+                {pendingImports.length > 0 && (
+                    <div className="mb-6 space-y-2">
+                        {pendingImports.map((imp) => (
+                            <Link
+                                key={imp.id}
+                                href={importShow.url(imp.id)}
+                                className="flex items-center gap-3 rounded-2xl border border-[#E8DCC4] bg-[#FBF7F1] px-4 py-3 text-sm text-[#3D2817] hover:border-[#6B4F3A]"
+                            >
+                                <FileScan className="h-5 w-5 shrink-0 text-[#6B4E3D]" />
+                                <span className="flex-1">
+                                    Extrato
+                                    {imp.statement_date
+                                        ? ` de ${formatDate(imp.statement_date)}`
+                                        : ''}
+                                    :{' '}
+                                    <strong>
+                                        {IMPORT_STATUS[imp.status]}
+                                        {imp.status === 'processing'
+                                            ? ` (${imp.progress}%)`
+                                            : ''}
+                                    </strong>
+                                </span>
+                                <span className="font-bold underline">
+                                    {imp.status === 'ready'
+                                        ? 'Revisar'
+                                        : 'Abrir'}
+                                </span>
+                            </Link>
+                        ))}
+                    </div>
+                )}
 
                 {/* Limite */}
                 <div className="mb-8 rounded-3xl border-2 border-[#3D2817] bg-[#E8DCC4] p-6">
@@ -235,6 +297,12 @@ export default function CardShow({
                     categories={categories}
                     accounts={accounts}
                     defaultAccountId={card.id}
+                />
+
+                <ImportStatementModal
+                    cardId={card.id}
+                    isOpen={importOpen}
+                    onClose={() => setImportOpen(false)}
                 />
 
                 <CreateAccountDrawer

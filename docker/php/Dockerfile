@@ -4,7 +4,9 @@
 FROM php:8.4-fpm-alpine AS builder
 
 RUN apk add --no-cache $PHPIZE_DEPS postgresql-dev libzip-dev icu-dev linux-headers \
-    && docker-php-ext-install -j"$(nproc)" pdo_pgsql bcmath intl zip pcntl opcache
+        libpng-dev libjpeg-turbo-dev libwebp-dev \
+    && docker-php-ext-configure gd --with-jpeg --with-webp \
+    && docker-php-ext-install -j"$(nproc)" pdo_pgsql bcmath intl zip pcntl opcache gd
 
 FROM node:24-alpine AS node
 
@@ -28,7 +30,8 @@ RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
 # Bibliotecas de runtime
-RUN apk add --no-cache libzip icu-libs postgresql-libs libstdc++ git unzip
+RUN apk add --no-cache libzip icu-libs postgresql-libs libstdc++ git unzip libpng libjpeg-turbo libwebp \
+    tesseract-ocr tesseract-ocr-data-eng poppler-utils
 
 # Usuário com o mesmo UID/GID do host (evita arquivos com dono root no volume)
 RUN addgroup -g ${GID} -S ${USER} \

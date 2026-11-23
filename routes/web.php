@@ -12,6 +12,7 @@ use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\RecurringTransactionController;
 use App\Http\Controllers\ReimbursementController;
 use App\Http\Controllers\SettlementController;
+use App\Http\Controllers\StatementImportController;
 use App\Http\Controllers\ShareController;
 use App\Http\Controllers\TagController;
 use App\Http\Controllers\TransactionController;
@@ -63,6 +64,13 @@ Route::middleware('auth')->group(function () {
     Route::put('accounts/{account}', [AccountController::class, 'update'])->name('accounts.update');
 
     Route::get('cards/{account}', [CreditCardController::class, 'show'])->name('cards.show');
+
+    // Importar extrato do cartão (OCR)
+    Route::post('cards/{account}/imports', [StatementImportController::class, 'store'])->name('imports.store');
+    Route::get('imports/{import}', [StatementImportController::class, 'show'])->name('imports.show');
+    Route::post('imports/{import}/accept', [StatementImportController::class, 'accept'])->name('imports.accept');
+    Route::delete('imports/{import}', [StatementImportController::class, 'destroy'])->name('imports.destroy');
+
     Route::post('invoices/{invoice}/pay', [CreditCardController::class, 'pay'])->name('invoices.pay');
     Route::delete('invoices/{invoice}/payment', [CreditCardController::class, 'undo'])->name('invoices.undo');
     Route::post('categories', [CategoryController::class, 'store'])->name('categories.store');

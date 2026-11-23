@@ -10,6 +10,20 @@ use Carbon\CarbonInterface;
 interface ICreditCardService
 {
     /**
+     * Período da fatura em que cai uma compra feita em $date (não cria nada).
+     *
+     * @return array{reference_month: \Carbon\CarbonImmutable, closing_date: \Carbon\CarbonImmutable, due_date: \Carbon\CarbonImmutable}
+     */
+    public function periodFor(Account $card, CarbonInterface $date): array;
+
+    /**
+     * Fechamento e vencimento da fatura de um mês de referência (mês do vencimento).
+     *
+     * @return array{closing_date: \Carbon\CarbonImmutable, due_date: \Carbon\CarbonImmutable}
+     */
+    public function periodForReference(Account $card, CarbonInterface $referenceMonth): array;
+
+    /**
      * Fatura (criada se ainda não existir) em que cai uma compra feita em $date.
      */
     public function invoiceFor(Account $card, CarbonInterface $date): CreditCardInvoice;
