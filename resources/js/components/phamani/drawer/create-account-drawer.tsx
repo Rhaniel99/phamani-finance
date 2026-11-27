@@ -265,8 +265,9 @@ function AccountForm({
                         </p>
                         <p className="mt-1 mb-3 text-sm text-[#8B7355]">
                             Excluir apaga {isCard ? 'o cartão' : 'a conta'} e
-                            todos os lançamentos dele{isCard ? '' : 'a'}. Você
-                            vê exatamente o que será apagado antes de confirmar.
+                            todos os lançamentos {isCard ? 'dele' : 'dela'}.
+                            Você vê exatamente o que será apagado antes de
+                            confirmar.
                         </p>
                         <button
                             type="button"
