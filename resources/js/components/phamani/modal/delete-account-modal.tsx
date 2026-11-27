@@ -121,7 +121,11 @@ export function DeleteAccountModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="max-w-lg rounded-3xl border-[#E8DCC4] bg-[#F5EFE6]">
+            <DialogContent
+                // Abre por cima do drawer de edição (z-[80]/z-[90]).
+                overlayClassName="z-[100] bg-[#3D2817]/50"
+                className="z-[110] max-w-lg rounded-3xl border-[#E8DCC4] bg-[#F5EFE6]"
+            >
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-2xl text-[#A65D57]">
                         <AlertTriangle className="h-6 w-6" />
