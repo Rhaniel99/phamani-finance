@@ -62,6 +62,8 @@ Route::middleware('auth')->group(function () {
 
     Route::post('accounts', [AccountController::class, 'store'])->name('accounts.store');
     Route::put('accounts/{account}', [AccountController::class, 'update'])->name('accounts.update');
+    Route::get('accounts/{account}/impact', [AccountController::class, 'impact'])->name('accounts.impact');
+    Route::delete('accounts/{account}', [AccountController::class, 'destroy'])->name('accounts.destroy');
 
     Route::get('cards/{account}', [CreditCardController::class, 'show'])->name('cards.show');
 

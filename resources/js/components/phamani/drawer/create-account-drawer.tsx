@@ -1,7 +1,9 @@
-import { Banknote, CreditCard, PiggyBank, Wallet } from 'lucide-react';
+import { Banknote, CreditCard, PiggyBank, Trash2, Wallet } from 'lucide-react';
+import { useState } from 'react';
 import type { ElementType } from 'react';
 import { Form } from '@/components/form';
 import { DrawerShell } from '@/components/phamani/drawer/drawer-shell';
+import { DeleteAccountModal } from '@/components/phamani/modal/delete-account-modal';
 import { Label } from '@/components/ui/label';
 import { useAccountsForm } from '@/hooks/use-accounts-form';
 import { cn } from '@/lib/utils';
@@ -76,6 +78,7 @@ function AccountForm({
     const { data, setData, errors } = form;
     const isCard = data.type === 'credit';
     const paymentAccounts = accounts.filter((a) => a.type !== 'credit');
+    const [deleting, setDeleting] = useState(false);
 
     return (
         <Form
@@ -252,6 +255,33 @@ function AccountForm({
                                 />
                             </div>
                         )}
+                    </div>
+                )}
+
+                {isEditing && account && (
+                    <div className="rounded-2xl border border-[#E8C4C0] p-4">
+                        <p className="font-serif text-[#A65D57]">
+                            Zona de perigo
+                        </p>
+                        <p className="mt-1 mb-3 text-sm text-[#8B7355]">
+                            Excluir apaga {isCard ? 'o cartão' : 'a conta'} e
+                            todos os lançamentos dele{isCard ? '' : 'a'}. Você
+                            vê exatamente o que será apagado antes de confirmar.
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => setDeleting(true)}
+                            className="inline-flex items-center gap-2 rounded-xl border-2 border-[#A65D57] px-4 py-2 text-sm font-bold text-[#A65D57] transition-colors hover:bg-[#A65D57] hover:text-white"
+                        >
+                            <Trash2 className="h-4 w-4" />
+                            Excluir {isCard ? 'cartão' : 'conta'}
+                        </button>
+                        <DeleteAccountModal
+                            account={account}
+                            isOpen={deleting}
+                            onClose={() => setDeleting(false)}
+                            onDeleted={onClose}
+                        />
                     </div>
                 )}
             </div>
